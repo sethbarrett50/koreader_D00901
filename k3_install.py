@@ -7,6 +7,7 @@
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import stat
 import subprocess
@@ -141,7 +142,9 @@ UPDATE_STEPS = (
     ("usbnet", "USBNetwork"),
 )
 DEVICE_STEPS = (
-    "  On the Kindle: [HOME] > [MENU] > Settings > [MENU] > Update Your Kindle.\n"
+    "  First safely eject (unmount) the Kindle and unplug it from the computer;\n"
+    "  the update cannot run while it is in USB drive mode.\n"
+    "  Then on the Kindle: [HOME] > [MENU] > Settings > [MENU] > Update Your Kindle.\n"
     "  Never reboot the Kindle by hand to force the update.\n"
     "  If 'Update Your Kindle' is greyed out, the wrong file was staged."
 )
@@ -195,9 +198,15 @@ def _update_step(mount: Path, bin_path: Path, label: str) -> None:
     for old in mount.glob("Update_*.bin"):
         old.unlink()
     shutil.copy2(bin_path, mount / bin_path.name)
+    os.sync()
     print(f"\nStaged {bin_path.name} ({label}).")
     print(DEVICE_STEPS)
     input("Press Enter once the Kindle has rebooted and remounted... ")
+    while not mount.is_dir():
+        input(
+            f"Kindle not mounted at {mount} yet; "
+            "reconnect it in USB drive mode and press Enter... "
+        )
     if (mount / bin_path.name).exists():
         print(
             f"warning: {bin_path.name} is still at the Kindle root; "

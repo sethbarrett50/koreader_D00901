@@ -1,6 +1,7 @@
 import builtins
 import hashlib
 import io
+import shutil
 import tarfile
 import zipfile
 
@@ -90,8 +91,7 @@ def _snapshot(root):
 def test_full_install_layout_and_single_bin(env):
     mount, args, seen = env
     assert main(args()) == 0
-    assert len(seen) == 2
-    assert all(len(s) <= 1 for s in seen)
+    assert seen == [[FILES["jailbreak"].split("/")[-1]], [FILES["mkk"].split("/")[-1]]]
     assert (mount / "documents" / "KUAL-KDK-1.0.azw2").read_bytes() == b"kual"
     assert (mount / "documents" / "keep.txt").read_text() == "mine"
     assert (mount / "koreader" / "koreader.sh").is_file()
@@ -104,6 +104,29 @@ def test_usbnet_adds_one_step(env):
     main(args("--usbnet"))
     assert len(seen) == 3
     assert all(len(s) <= 1 for s in seen)
+    assert seen[2] == [FILES["usbnet"].split("/")[-1]]
+
+
+def test_device_steps_mention_eject():
+    assert "eject" in k3_install.DEVICE_STEPS.lower()
+
+
+def test_waits_for_remount(env, monkeypatch):
+    mount, args, _seen = env
+    prompts = []
+
+    def fake_input(prompt=""):
+        prompts.append(prompt)
+        if len(prompts) == 1:
+            shutil.move(mount, mount.parent / "away")
+        elif len(prompts) == 2:
+            shutil.move(mount.parent / "away", mount)
+        return ""
+
+    monkeypatch.setattr(builtins, "input", fake_input)
+    assert main(args()) == 0
+    assert len(prompts) == 3
+    assert "not mounted" in prompts[1]
 
 
 def test_dry_run_changes_nothing_and_does_not_fetch(env, monkeypatch):
