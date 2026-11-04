@@ -1,0 +1,7 @@
+# downloaded upstream packages (fetched + sha256-verified by the installer)
+cache/
+downloads/
+*.tar.xz
+*.zip
+__pycache__/
+.venv/
