@@ -46,6 +46,7 @@ REQUIRED = {
         ";debugOff",
         "ssh root@192.168.2.2",
         "192.168.2.1",
+        "ip addr add 192.168.2.1",
         "passwordless only over USB with Wi-Fi mode off",
     ],
     "Pinned packages": [],
@@ -71,6 +72,11 @@ def test_section_has_required_text(title):
     body = section(title)
     for needle in REQUIRED[title]:
         assert needle in body, f"{title!r} lacks {needle!r}"
+
+
+def test_mkk_description():
+    assert "run custom Kindlets" in README
+    assert "unsigned updates" not in README
 
 
 def test_risk_note_near_top():

@@ -6,8 +6,8 @@ Use this at your own risk: it modifies your Kindle's firmware and I am not respo
 
 `k3_install.py` downloads pinned, checksum-verified packages and stages them on a Kindle Keyboard (K3) that is mounted as a USB drive. It chains:
 
-1. The jailbreak.
-2. MKK (the developer certificates the Kindle needs to accept unsigned updates).
+1. The jailbreak, which lets the Kindle install custom update packages.
+2. MKK (the developer certificates the Kindle needs to run custom Kindlets such as KUAL).
 3. KUAL (the Kindle Unified Application Launcher), copied into `documents/`.
 4. KOReader, merged into the Kindle's root.
 5. Optionally, USBNetwork (`--usbnet`), for ssh access over USB.
@@ -82,7 +82,16 @@ After installing with `--usbnet`, enable it from the Kindle's search bar:
 2. Type `~usbNetwork` and press Enter.
 3. Type `;debugOff` and press Enter.
 
-Then connect over USB and use `ssh root@192.168.2.2`. The computer side is `192.168.2.1`. Login is passwordless only over USB with Wi-Fi mode off.
+Then connect over USB. On Debian the Kindle appears as a USB network interface, often `usb0` (check with `ip link`). Assign the computer side its address:
+
+```
+sudo ip addr add 192.168.2.1/24 dev usb0
+sudo ip link set usb0 up
+```
+
+(The older equivalent is `sudo ifconfig usb0 192.168.2.1`.) Then use `ssh root@192.168.2.2`. Login is passwordless only over USB with Wi-Fi mode off.
+
+Before ejecting, bring the interface down with `sudo ip link set usb0 down`, and enter `~usbNetwork` again on the Kindle to switch back to USB drive mode.
 
 ## Pinned packages
 
