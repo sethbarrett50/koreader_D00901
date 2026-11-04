@@ -1,12 +1,16 @@
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = []
 # ///
 """Install KOReader on a Kindle Keyboard (K3)."""
 
+import argparse
 import hashlib
 import json
+import shutil
 import stat
+import subprocess
+import sys
 import tarfile
 import urllib.request
 import zipfile
@@ -55,6 +59,15 @@ def _sha256_of(path: Path) -> str:
 
 def fetch(pkg: dict[str, str], cache_dir: Path) -> Path:
     """Download pkg into cache_dir, accepting it only on an exact sha256 match."""
+    name = pkg["filename"]
+    if (
+        "/" in name
+        or "\\" in name
+        or name in ("", ".", "..")
+        or PurePosixPath(name).is_absolute()
+        or Path(name).is_absolute()
+    ):
+        raise ValueError(f"unsafe package filename: {name!r}")
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     final = cache_dir / pkg["filename"]
@@ -66,7 +79,10 @@ def fetch(pkg: dict[str, str], cache_dir: Path) -> Path:
     part = final.with_name(final.name + ".part")
     digest = hashlib.sha256()
     try:
-        with urllib.request.urlopen(pkg["url"]) as resp, part.open("wb") as out:
+        with (
+            urllib.request.urlopen(pkg["url"], timeout=60) as resp,
+            part.open("wb") as out,
+        ):
             while chunk := resp.read(1 << 20):
                 digest.update(chunk)
                 out.write(chunk)
@@ -117,3 +133,140 @@ def extract(archive: Path, dest: Path) -> Path:
     else:
         raise ValueError(f"unsupported archive type: {archive.name!r}")
     return dest
+
+
+UPDATE_STEPS = (
+    ("jailbreak", "jailbreak"),
+    ("mkk", "MKK (developer certificates)"),
+    ("usbnet", "USBNetwork"),
+)
+DEVICE_STEPS = (
+    "  On the Kindle: [HOME] > [MENU] > Settings > [MENU] > Update Your Kindle.\n"
+    "  Never reboot the Kindle by hand to force the update.\n"
+    "  If 'Update Your Kindle' is greyed out, the wrong file was staged."
+)
+
+
+def _default_mount() -> Path:
+    try:
+        out = subprocess.run(
+            ["findmnt", "-rn", "-S", "LABEL=Kindle", "-o", "TARGET"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+    except OSError:
+        out = ""
+    targets = out.split()
+    if not targets:
+        raise SystemExit(
+            "error: no mounted volume labelled Kindle found; "
+            "connect the Kindle in USB drive mode or pass --mount PATH"
+        )
+    return Path(targets[0])
+
+
+def _ask_valid(prompt: str, value: str | None, check, flag: str) -> str:
+    """Validate a flag value (fatal when bad) or prompt until one validates."""
+    if value is not None:
+        try:
+            check(value)
+        except ValueError as exc:
+            raise SystemExit(f"error: {flag}: {exc}") from None
+        return value
+    while True:
+        answer = input(prompt).strip()
+        try:
+            check(answer)
+        except ValueError as exc:
+            print(f"  {exc}")
+            continue
+        return answer
+
+
+def _member(root: Path, member: str) -> Path:
+    path = root / member
+    if not path.is_file():
+        raise SystemExit(f"error: {member} not found in downloaded package {root}")
+    return path
+
+
+def _update_step(mount: Path, bin_path: Path, label: str) -> None:
+    for old in mount.glob("Update_*.bin"):
+        old.unlink()
+    shutil.copy2(bin_path, mount / bin_path.name)
+    print(f"\nStaged {bin_path.name} ({label}).")
+    print(DEVICE_STEPS)
+    input("Press Enter once the Kindle has rebooted and remounted... ")
+    if (mount / bin_path.name).exists():
+        print(
+            f"warning: {bin_path.name} is still at the Kindle root; "
+            "the update may not have applied."
+        )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Install KOReader on a Kindle K3.")
+    parser.add_argument("--mount", type=Path, help="Kindle USB mount point")
+    parser.add_argument("--fw", help="firmware range: " + ", ".join(FIRMWARE_RANGES))
+    parser.add_argument("--prefix", help="serial prefix: " + ", ".join(VARIANTS))
+    parser.add_argument("--usbnet", action="store_true", help="also install USBNetwork")
+    parser.add_argument(
+        "--cache", type=Path, default=Path("~/.cache/k3-koreader").expanduser()
+    )
+    parser.add_argument("--dry-run", action="store_true", help="print the plan only")
+    args = parser.parse_args(argv)
+
+    fw = _ask_valid(
+        f"Firmware range ({'/'.join(FIRMWARE_RANGES)}): ",
+        args.fw,
+        lambda v: select_files(v, "B006", False),
+        "--fw",
+    )
+    prefix = _ask_valid(
+        f"Serial prefix ({'/'.join(VARIANTS)}): ",
+        args.prefix,
+        lambda v: select_files(fw, v, False),
+        "--prefix",
+    )
+    files = select_files(fw, prefix, args.usbnet)
+    mount = args.mount if args.mount is not None else _default_mount()
+    if not mount.is_dir():
+        raise SystemExit(f"error: mount point {mount} is not a directory")
+    steps = [(k, label) for k, label in UPDATE_STEPS if files[k]]
+
+    if args.dry_run:
+        print(f"Dry run: mount={mount} firmware={fw} prefix={prefix.upper()}")
+        for key, label in steps:
+            print(f"  would stage {files[key]} ({label})")
+        print("  would copy KUAL-KDK-1.0.azw2 into documents/")
+        print("  would merge koreader/, extensions/, launchpad/ into the mount root")
+        return 0
+
+    manifest = load_manifest()
+    roots: dict[str, Path] = {}
+    needed = [k for k, _ in steps] + ["kual", "koreader"]
+    for key in needed:
+        archive = fetch(manifest[key], args.cache)
+        roots[key] = extract(archive, args.cache / key)
+
+    bins = [(_member(roots[k], files[k]), label) for k, label in steps]
+    kual = _member(roots["kual"], files["kual"])
+    for bin_path, label in bins:
+        _update_step(mount, bin_path, label)
+
+    (mount / "documents").mkdir(exist_ok=True)
+    shutil.copy2(kual, mount / "documents" / kual.name)
+    for tree in ("koreader", "extensions", "launchpad"):
+        src = roots["koreader"] / tree
+        if src.is_dir():
+            shutil.copytree(src, mount / tree, dirs_exist_ok=True)
+    print(
+        "\nDone. Eject the Kindle, then on the device open the KUAL book "
+        "in your library and choose KOReader."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
