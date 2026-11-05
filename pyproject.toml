@@ -32,7 +32,7 @@ koreader-d00901-tui = "koreader_d00901.tui:main"
 koreader-d00901-battery = "koreader_d00901.battery:main"
 
 [build-system]
-requires = ["uv_build>=0.9,<0.12"]
+requires = ["uv_build>=0.9,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
