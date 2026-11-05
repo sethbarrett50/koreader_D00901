@@ -47,6 +47,18 @@ jailbreak file. The installer asks for the range as `3.0-3.2` or `3.3-3.4`.
 
 ## Getting the installer
 
+The installer runs on Linux, macOS and Windows (Python 3.14, which `uv` fetches for you).
+
+| System  | Finding the Kindle                     | Eject Kindle                                     |
+| ------- | -------------------------------------- | ------------------------------------------------ |
+| Linux   | the volume labelled Kindle (`findmnt`) | `udisksctl unmount`                              |
+| macOS   | `/Volumes/Kindle`                      | `diskutil eject`                                 |
+| Windows | the drive letter labelled Kindle       | the drive's Eject in File Explorer, run for you   |
+
+If the Kindle is not found, pass `--mount PATH` (in the TUI, type it), for example `--mount E:\` on
+Windows. If ejecting fails, the installer says so; eject from your file manager instead.
+`koreader-d00901-battery` needs `ssh`, which Windows 10 and later include as OpenSSH Client.
+
 ```
 uv tool install koreader_D00901    # or: pipx install koreader_D00901
 ```

@@ -67,7 +67,7 @@ def test_tui_full_install(kindle):
     assert waits == [[n] for n in names]
     mount = kindle.mount
     assert (mount / 'documents' / 'KUAL-KDK-1.0.azw2').read_bytes() == b'kual'
-    assert (mount / 'documents' / 'keep.txt').read_text() == 'mine'
+    assert (mount / 'documents' / 'keep.txt').read_text(encoding='utf-8') == 'mine'
     assert (mount / 'koreader' / 'koreader.sh').is_file()
     assert (mount / 'launchpad' / 'boot.sh').is_file()
     assert (mount / 'koreader' / 'news' / 'feed_config.lua').is_file()
@@ -165,7 +165,9 @@ def test_tui_custom_feed_file(kindle, tmp_path):
     app = _app(kindle, only=['feeds'], feeds_file=custom)
     _, log_text = asyncio.run(_drive(app, kindle.mount))
     assert app.state == 'done', log_text
-    assert 'https://example.org/a.xml' in (kindle.mount / 'koreader' / 'news' / 'feed_config.lua').read_text()
+    assert 'https://example.org/a.xml' in (kindle.mount / 'koreader' / 'news' / 'feed_config.lua').read_text(
+        encoding='utf-8'
+    )
 
 
 def test_tui_bad_feed_file_refuses_to_start(kindle, tmp_path):
@@ -202,7 +204,7 @@ def test_tui_dashboard_url_preselects_and_installs(kindle):
     assert app.state == 'done', log_text
     assert app.install is not None
     assert 'dashboard' in app.install.steps
-    conf = (kindle.mount / 'extensions' / 'k3dash' / 'k3dash.conf').read_text()
+    conf = (kindle.mount / 'extensions' / 'k3dash' / 'k3dash.conf').read_text(encoding='utf-8')
     assert 'INTERVAL=120' in conf
     assert 'Installed the status display' in log_text
 

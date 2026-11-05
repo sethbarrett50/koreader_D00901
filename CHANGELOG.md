@@ -4,6 +4,28 @@ All notable changes to `koreader_D00901`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-11-05
+
+### Added
+
+- macOS and Windows support (#25). The installer, the TUI and the battery reader now run on all
+  three systems, and CI runs the tests on `ubuntu-latest`, `macos-latest` and `windows-latest`.
+  - Finding the Kindle: `findmnt` on Linux, `/Volumes/Kindle` on macOS, and the drive letter
+    labelled Kindle on Windows.
+  - **Eject Kindle**: `udisksctl` on Linux, `diskutil eject` on macOS, and File Explorer's Eject on
+    Windows. When ejecting does not work, it says to eject from the file manager.
+
+### Fixed
+
+- Files written to the Kindle (`feed_config.lua`, `k3dash.conf`) are always UTF-8 with LF line
+  endings. On Windows they would have got CRLF, and the Kindle's shell would have read
+  `INTERVAL=300\r`.
+- `koreader-d00901-battery` sends its script to the Kindle as bytes, so it never gets CRLF, and
+  uses the platform's null device for `ssh`'s known-hosts file.
+- No `os.sync` on Windows: flushing writes is skipped there instead of failing.
+- On Linux without `findmnt`, the TUI shows the Kindle as not detected instead of an error; pass
+  `--mount PATH`.
+
 ## [0.4.1] - 2026-11-05
 
 ### Fixed
@@ -78,6 +100,7 @@ First release on PyPI.
 - KUAL failed with "not signed by a registered developer" because MKK's 2014 certificates expired
   in April 2025. The installer now applies NiLuJe's 2025 keystore update after MKK.
 
+[0.5.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.2.1...v0.3.0

@@ -65,7 +65,7 @@ def _feed(entry: dict, index: int) -> Feed:
 
 def load_feeds(path: Path | None = None) -> list[Feed]:
     """Feeds from a TOML file, or the list shipped with the package."""
-    source = path.read_text() if path is not None else files('koreader_d00901').joinpath('feeds.toml').read_text()
+    source = (path if path is not None else files('koreader_d00901').joinpath('feeds.toml')).read_text(encoding='utf-8')
     try:
         data = tomllib.loads(source)
     except tomllib.TOMLDecodeError as exc:
@@ -108,11 +108,12 @@ def install_feeds(mount: Path, feeds: list[Feed]) -> Path:
     target = mount.joinpath(*FEED_CONFIG)
     target.parent.mkdir(parents=True, exist_ok=True)
     text = render_lua(feeds)
-    if target.exists() and target.read_text() != text:
+    if target.exists() and target.read_bytes() != text.encode():
         backup = target.with_name(target.name + '.bak')
         target.replace(backup)
         log.info('kept the previous feed list as %s', backup)
-    target.write_text(text)
+    # The Kindle reads this file as-is: UTF-8 with LF line endings on every OS.
+    target.write_bytes(text.encode())
     log.info('wrote %d feeds (%d enabled) to %s', len(feeds), sum(f.enabled for f in feeds), target)
     return target
 

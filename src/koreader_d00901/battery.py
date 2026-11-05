@@ -14,6 +14,7 @@ firmware has them) is captured raw, so the first real reading shows what a K3 ex
 import argparse
 import csv
 import logging
+import os
 import subprocess
 import sys
 
@@ -70,14 +71,19 @@ def ssh_runner(host: str, user: str = 'root', timeout: int = 15) -> Runner:
         # keys. Host-key checking is off for this point-to-point USB link only.
         argv = [
             'ssh', '-o', 'BatchMode=yes', '-o', f'ConnectTimeout={timeout}',
-            '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'LogLevel=ERROR',
+            '-o', 'StrictHostKeyChecking=no', '-o', f'UserKnownHostsFile={os.devnull}', '-o', 'LogLevel=ERROR',
             f'{user}@{host}', 'sh -s',
         ]  # fmt: skip
         log.debug('running %s', ' '.join(argv))
         try:
-            result = subprocess.run(argv, input=script, capture_output=True, text=True, timeout=timeout * 2)
+            # Bytes, not text=True: text mode on Windows would send the Kindle's shell CRLF line endings.
+            proc = subprocess.run(argv, input=script.encode(), capture_output=True, timeout=timeout * 2)
         except (OSError, subprocess.TimeoutExpired) as exc:
-            raise DeviceError(f'could not reach the Kindle at {host}: {exc}') from exc
+            hint = ' (is OpenSSH installed and ssh on PATH?)' if isinstance(exc, FileNotFoundError) else ''
+            raise DeviceError(f'could not reach the Kindle at {host}: {exc}{hint}') from exc
+        result = subprocess.CompletedProcess(
+            proc.args, proc.returncode, proc.stdout.decode(errors='replace'), proc.stderr.decode(errors='replace')
+        )
         log.debug('ssh rc=%d stdout=%r stderr=%r', result.returncode, result.stdout, result.stderr)
         if result.returncode != 0:
             raise DeviceError(
@@ -131,7 +137,7 @@ def read_battery(run: Runner, note: str = '') -> Reading:
 def append(log_path: Path, reading: Reading) -> None:
     new = not log_path.exists()
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open('a', newline='') as f:
+    with log_path.open('a', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, CSV_FIELDS)
         if new:
             writer.writeheader()
@@ -151,7 +157,7 @@ def previous(log_path: Path, serial: str) -> tuple[datetime, int] | None:
     if not log_path.exists():
         return None
     last = None
-    with log_path.open(newline='') as f:
+    with log_path.open(newline='', encoding='utf-8') as f:
         for row in csv.DictReader(f):
             if row['serial'] == serial and (cap := _int(row['capacity'])) is not None:
                 last = (datetime.fromisoformat(row['time']), cap)

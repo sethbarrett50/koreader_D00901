@@ -76,13 +76,15 @@ def test_install_writes_config_and_backs_up_a_different_one(tmp_path):
     feed_list = feeds.load_feeds()
     target = feeds.install_feeds(tmp_path, feed_list)
     assert target == tmp_path / 'koreader' / 'news' / 'feed_config.lua'
+    assert b'\r' not in target.read_bytes(), 'the Kindle expects LF line endings, also when installed from Windows'
+    target.read_bytes().decode('utf-8')
     assert not target.with_name('feed_config.lua.bak').exists()
     feeds.install_feeds(tmp_path, feed_list)  # same content: no backup
     assert not target.with_name('feed_config.lua.bak').exists()
     target.write_text('return { { "https://hand-edited.example", limit = 1 } }')
     feeds.install_feeds(tmp_path, feed_list)
-    assert 'hand-edited' in target.with_name('feed_config.lua.bak').read_text()
-    assert 'hand-edited' not in target.read_text()
+    assert 'hand-edited' in target.with_name('feed_config.lua.bak').read_text(encoding='utf-8')
+    assert 'hand-edited' not in target.read_text(encoding='utf-8')
 
 
 @pytest.mark.parametrize('body', [ATOM, RSS])

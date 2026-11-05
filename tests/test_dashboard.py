@@ -3,6 +3,7 @@ import json
 import runpy
 import shutil
 import subprocess
+import sys
 import threading
 import xml.etree.ElementTree as ET
 
@@ -17,6 +18,9 @@ from koreader_d00901.errors import ConfigError
 Image = pytest.importorskip('PIL.Image')
 ROOT = Path(__file__).resolve().parent.parent
 URL = 'http://192.168.10.158:8090/k3.png'
+needs_sh = pytest.mark.skipif(
+    sys.platform == 'win32', reason='runs the Kindle shell script with sh, which Windows lacks'
+)
 
 
 def _png(size=(1200, 1600), mode='RGB') -> bytes:
@@ -64,16 +68,24 @@ def test_dashboard_step_is_opt_in():
 def test_install_extension_layout_and_conf(tmp_path):
     target = dashboard.install_extension(tmp_path, URL, 300)
     assert target == tmp_path / 'extensions' / 'k3dash'
-    assert sorted(str(p.relative_to(target)) for p in target.rglob('*') if p.is_file()) == [
+    assert sorted(p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()) == [
         'bin/k3dash.sh',
         'config.xml',
         'k3dash.conf',
         'menu.json',
     ]
     assert ET.parse(target / 'config.xml').getroot().findtext('menus/menu') == 'menu.json'
-    menu = json.loads((target / 'menu.json').read_text())
+    menu = json.loads((target / 'menu.json').read_text(encoding='utf-8'))
     params = [item['params'] for item in menu['items'][0]['items']]
     assert params == [f'/mnt/us/extensions/k3dash/bin/k3dash.sh {verb}' for verb in ('start', 'once', 'stop')]
+    for path in target.rglob('*'):
+        if path.is_file():
+            assert b'\r' not in path.read_bytes(), f'{path.name}: CRLF line endings break the Kindle shell'
+
+
+@needs_sh
+def test_conf_is_sourced_by_sh(tmp_path):
+    target = dashboard.install_extension(tmp_path, URL, 300)
     # The conf is sourced by the Kindle's shell: it must give back exactly what was written.
     out = subprocess.run(
         ['sh', '-c', '. "$1"; printf "%s|%s" "$URL" "$INTERVAL"', 'sh', str(target / 'k3dash.conf')],
@@ -84,17 +96,19 @@ def test_install_extension_layout_and_conf(tmp_path):
     assert out == f'{URL}|300'
 
 
+@needs_sh
 def test_kindle_script_parses_and_uses_only_device_paths():
     script = ROOT / 'src' / 'koreader_d00901' / 'k3dash' / 'bin' / 'k3dash.sh'
     subprocess.run(['sh', '-n', str(script)], check=True)
     if busybox := shutil.which('busybox'):
         subprocess.run([busybox, 'sh', '-n', str(script)], check=True)
-    text = script.read_text()
+    text = script.read_text(encoding='utf-8')
     assert '\r' not in text, 'CRLF line endings break the Kindle shell'
     assert 'lipc-set-prop -i com.lab126.wifid enable 1' in text
     assert 'FBINK=/mnt/us/koreader/fbink' in text
 
 
+@needs_sh
 def test_kindle_script_once_with_fakes(tmp_path):
     """Run the real script with fake wget/fbink/lipc to check the fetch-and-draw path."""
     fakes = tmp_path / 'bin'
@@ -107,7 +121,7 @@ def test_kindle_script_once_with_fakes(tmp_path):
     }.items():
         (fakes / name).write_text(f'#!/bin/sh\n{body}\n')
         (fakes / name).chmod(0o755)
-    script = (ROOT / 'src' / 'koreader_d00901' / 'k3dash' / 'bin' / 'k3dash.sh').read_text()
+    script = (ROOT / 'src' / 'koreader_d00901' / 'k3dash' / 'bin' / 'k3dash.sh').read_text(encoding='utf-8')
     ext = tmp_path / 'k3dash'
     (ext / 'bin').mkdir(parents=True)
     (ext / 'k3dash.conf').write_text(dashboard.render_conf(URL, 120))
@@ -121,11 +135,11 @@ def test_kindle_script_once_with_fakes(tmp_path):
     (ext / 'bin' / 'k3dash.sh').write_text(patched)
     env = {'PATH': f'{fakes}:/usr/bin:/bin', 'CALLS': str(calls)}
     subprocess.run(['sh', str(ext / 'bin' / 'k3dash.sh'), 'once'], env=env, check=True)
-    lines = calls.read_text().splitlines()
+    lines = calls.read_text(encoding='utf-8').splitlines()
     assert lines[0].startswith('wget -q -T 30 -O ')
     assert lines[0].endswith(URL)
     assert lines[1] == f'fbink -q -c -f -g file={tmp_path}/k3dash.png'
-    assert (tmp_path / 'k3dash.png').read_text() == 'png'
+    assert (tmp_path / 'k3dash.png').read_text(encoding='utf-8') == 'png'
 
 
 def test_to_k3_scales_and_quantises():

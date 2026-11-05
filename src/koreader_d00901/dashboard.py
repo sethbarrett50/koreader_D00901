@@ -81,7 +81,8 @@ def install_extension(mount: Path, url: str, interval: int = DEFAULT_INTERVAL) -
         path = target / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-    (target / CONF_NAME).write_text(conf)
+    # Sourced by the Kindle's shell, so LF only: a CRLF would leave INTERVAL=300\r.
+    (target / CONF_NAME).write_bytes(conf.encode())
     log.info('installed the dashboard extension at %s (%s every %ss)', target, url, interval)
     return target
 
@@ -143,11 +144,13 @@ def write_atomic(path: Path, data: bytes) -> None:
 
 
 def dashboard_json() -> str:
-    return files('koreader_d00901').joinpath('k3-status.json').read_text()
+    return files('koreader_d00901').joinpath('k3-status.json').read_text(encoding='utf-8')
 
 
 def _render(args: argparse.Namespace) -> int:
-    token = args.token_file.read_text().strip() if args.token_file else os.environ.get('GRAFANA_TOKEN', '')
+    token = (
+        args.token_file.read_text(encoding='utf-8').strip() if args.token_file else os.environ.get('GRAFANA_TOKEN', '')
+    )
     if not token:
         raise ConfigError('no Grafana token: pass --token-file or set GRAFANA_TOKEN')
     url = render_url(args.grafana, args.uid, args.tz)

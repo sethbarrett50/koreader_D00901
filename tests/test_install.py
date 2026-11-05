@@ -50,12 +50,12 @@ def test_full_install_layout_and_single_bin(env, capsys):
     copied = [f for t in ('koreader', 'extensions', 'launchpad') for f in (mount / t).rglob('*') if f.is_file()]
     n = len([f for f in copied if f != feed_config])
     assert f'KOReader: {n}/{n} files' in out
-    assert feed_config.read_text().startswith('return {--do NOT change this line')
+    assert feed_config.read_text(encoding='utf-8').startswith('return {--do NOT change this line')
     assert 'news feeds to koreader/news/feed_config.lua' in out
     assert 'Flushing writes to the Kindle' in out
     assert seen == [[_bin('jailbreak')], [_bin('mkk')], [_bin('keystore')]]
     assert (mount / 'documents' / 'KUAL-KDK-1.0.azw2').read_bytes() == b'kual'
-    assert (mount / 'documents' / 'keep.txt').read_text() == 'mine'
+    assert (mount / 'documents' / 'keep.txt').read_text(encoding='utf-8') == 'mine'
     assert (mount / 'koreader' / 'koreader.sh').is_file()
     assert (mount / 'extensions' / 'koreader' / 'menu.json').is_file()
     assert (mount / 'launchpad' / 'boot.sh').is_file()
@@ -127,7 +127,7 @@ def test_download_failure_is_a_clean_error_and_logged(env, kindle, capsys):
     assert main(args()) == 1
     err = capsys.readouterr().err
     assert 'could not download' in err
-    log_text = (kindle.cache / 'install.log').read_text()
+    log_text = (kindle.cache / 'install.log').read_text(encoding='utf-8')
     assert 'DEBUG' in log_text
     assert 'install failed' in log_text
     assert 'Traceback' in log_text
@@ -188,7 +188,7 @@ def test_only_feeds_writes_just_the_feed_list(env, tmp_path, capsys):
     assert main(args('--only', 'feeds', '--feeds', str(custom))) == 0
     assert seen == []
     assert 'Getting packages' not in capsys.readouterr().out
-    config = (mount / 'koreader' / 'news' / 'feed_config.lua').read_text()
+    config = (mount / 'koreader' / 'news' / 'feed_config.lua').read_text(encoding='utf-8')
     assert '{ "https://example.org/feed.xml", limit = 2,' in config
     assert not (mount / 'koreader' / 'koreader.sh').exists()
 
@@ -207,7 +207,7 @@ def test_dashboard_url_installs_the_status_display(env, capsys):
     mount, args, _seen = env
     assert main(args('--only', 'dashboard', '--dashboard-url', 'http://10.0.0.5:8090/k3.png')) == 0
     assert 'Installed the status display in extensions/k3dash/' in capsys.readouterr().out
-    conf = (mount / 'extensions' / 'k3dash' / 'k3dash.conf').read_text()
+    conf = (mount / 'extensions' / 'k3dash' / 'k3dash.conf').read_text(encoding='utf-8')
     assert 'URL="http://10.0.0.5:8090/k3.png"' in conf
     assert 'INTERVAL=300' in conf
     assert not (mount / 'koreader' / 'koreader.sh').exists()

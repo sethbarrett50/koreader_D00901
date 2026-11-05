@@ -47,4 +47,4 @@ def test_manifest_keys():
     for entry in manifest.values():
         assert set(entry) == {'url', 'sha256', 'filename'}
     path = Path(packages.__file__).parent / 'packages.json'
-    assert json.loads(path.read_text()) == manifest
+    assert json.loads(path.read_text(encoding='utf-8')) == manifest
