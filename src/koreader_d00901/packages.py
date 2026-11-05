@@ -9,11 +9,14 @@ import urllib.error
 import urllib.request
 import zipfile
 
-from collections.abc import Callable
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 
 from koreader_d00901.errors import ChecksumError, PackageError, UnsafeArchiveError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 

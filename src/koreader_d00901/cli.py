@@ -4,12 +4,15 @@ import argparse
 import logging
 import sys
 
-from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from koreader_d00901 import __version__, device, packages, plan
 from koreader_d00901.errors import ConfigError, InstallerError
 from koreader_d00901.logs import DEFAULT_CACHE, setup_logging
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 

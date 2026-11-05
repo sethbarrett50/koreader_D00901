@@ -25,7 +25,11 @@ async def _drive(
     async with app.run_test(size=(140, 50)) as pilot:
         app.query_one(press, Button).press()
         if answer is not None:
-            await pilot.pause(0.1)
+            # Wait for the dialog to be composed instead of sleeping a fixed time (slow CI runners).
+            for _ in range(250):
+                await pilot.pause(0.02)
+                if app.screen.query(answer):
+                    break
             app.screen.query_one(answer, Button).press()
         for _ in range(limit):
             await pilot.pause(0.02)

@@ -5,11 +5,14 @@ import os
 import shutil
 import subprocess
 
-from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from koreader_d00901.errors import DeviceError
 from koreader_d00901.plan import KOREADER_TREES, KUAL_FILE
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 

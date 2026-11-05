@@ -141,14 +141,15 @@ make test       # pytest
 make ci         # everything CI runs, without fixes
 make build      # sdist + wheel into dist/
 make smoke      # install the wheel in a clean env and run both commands
+make version-check  # package changed since the last tag? then the version must be bumped
 uv run python -m koreader_d00901.pins   # re-download every pin and check it (about 100 MB)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `make ci`, `make build` and `make smoke` on Python 3.12 and 3.13 for every push and PR. A weekly pin check (`.github/workflows/pins.yml`, also runnable from the Actions tab) re-downloads every package in `packages.json`, verifies its sha256, and confirms that it still holds every file the installer stages for each serial prefix and firmware range. If upstream drifts, it opens an issue (or comments on the open one).
+CI (`.github/workflows/ci.yml`) runs `make ci`, `make build` and `make smoke` on Python 3.14 for every push and PR. A weekly pin check (`.github/workflows/pins.yml`, also runnable from the Actions tab) re-downloads every package in `packages.json`, verifies its sha256, and confirms that it still holds every file the installer stages for each serial prefix and firmware range. If upstream drifts, it opens an issue (or comments on the open one).
 
 ### Releasing
 
-1. Bump `version` in `pyproject.toml` (`uv version --bump patch`), then merge to `main`.
+1. Bump `version` in `pyproject.toml` (`uv version --bump patch`, `minor` or `major`), then merge to `main`. CI's `make version-check` fails any PR that changes `src/`, the dependencies or `uv.lock` since the last `vX.Y.Z` tag without raising the version, so every release gets a new version on PyPI.
 2. Tag the merge commit `vX.Y.Z` (matching that version) and push the tag: `git tag v0.1.0 && git push origin v0.1.0`.
 3. `.github/workflows/release.yml` checks the tag against the version, runs `make ci`, builds and smoke-tests the wheel, and publishes it to PyPI through trusted publishing (no API token is stored anywhere).
 
