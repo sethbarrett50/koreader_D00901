@@ -44,3 +44,8 @@ jobs:
 
       - name: Tests
         run: uv run pytest -q
+
+      - name: Build and smoke-test the wheel
+        run: |
+          make build
+          make smoke

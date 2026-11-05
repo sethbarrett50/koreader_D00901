@@ -35,11 +35,14 @@ Firmware 3.0-3.2 uses the jailbreak file marked `-3.0-to-3.2`. Firmware 3.3-3.4 
 
 ## Running the installer
 
-Clone the repo, then connect the Kindle in USB drive mode. The easiest way is the full-screen installer:
+Install from PyPI, then connect the Kindle in USB drive mode and start the full-screen installer:
 
 ```
-uv run koreader-d00901-tui
+uv tool install koreader_D00901    # or: pipx install koreader_D00901
+koreader-d00901-tui
 ```
+
+To run it once without installing anything, use `uvx --from koreader_D00901 koreader-d00901-tui`. From a clone of this repo, use `uv run koreader-d00901-tui`.
 
 Pick the firmware range and serial prefix, press **Install**, and follow the on-screen steps. Between updates it shows what to do on the Kindle, has an **Eject Kindle** button, and waits for **Continue**. **Dry run** shows the plan without changing anything.
 
@@ -136,7 +139,17 @@ make lint       # ruff format + ruff check --fix
 make typecheck  # ty check
 make test       # pytest
 make ci         # everything CI runs, without fixes
+make build      # sdist + wheel into dist/
+make smoke      # install the wheel in a clean env and run both commands
 ```
+
+### Releasing
+
+1. Bump `version` in `pyproject.toml` (`uv version --bump patch`), then merge to `main`.
+2. Tag the merge commit `vX.Y.Z` (matching that version) and push the tag: `git tag v0.1.0 && git push origin v0.1.0`.
+3. `.github/workflows/release.yml` checks the tag against the version, runs `make ci`, builds and smoke-tests the wheel, and publishes it to PyPI through trusted publishing (no API token is stored anywhere).
+
+One-time setup on PyPI, before the first release: at https://pypi.org/manage/account/publishing/ add a pending trusted publisher with project `koreader_D00901`, owner `sethbarrett50`, repository `koreader_D00901`, workflow `release.yml` and environment `pypi`. In the GitHub repo settings, create an environment named `pypi` (adding yourself as a required reviewer gives you a manual approval step before each upload).
 
 The code lives in `src/koreader_d00901/`:
 
