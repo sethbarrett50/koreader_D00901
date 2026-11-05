@@ -18,6 +18,7 @@ def test_select_files(prefix, variant, fw, usbnet):
     assert got == {
         'jailbreak': f'Jailbreak/Update_jailbreak_0.13.N_{variant}{suffix}_install.bin',
         'mkk': f'DevCerts/Update_mkk-20141129-{variant}-{prefix}_install.bin',
+        'keystore': f'Update-mkk-20250419-{variant}-{prefix}_keystore-install.bin',
         'usbnet': f'Update_usbnetwork_0.57.N_{variant}_install.bin' if usbnet else None,
         'kual': 'KUAL-KDK-1.0.azw2',
     }
@@ -41,7 +42,7 @@ def test_bad_fw(fw):
 
 def test_manifest_keys():
     manifest = k3_install.load_manifest()
-    assert set(manifest) == {'jailbreak', 'mkk', 'kual', 'usbnet', 'koreader'}
+    assert set(manifest) == {'jailbreak', 'mkk', 'keystore', 'kual', 'usbnet', 'koreader'}
     for entry in manifest.values():
         assert set(entry) == {'url', 'sha256', 'filename'}
     path = Path(k3_install.__file__).parent / 'packages.json'

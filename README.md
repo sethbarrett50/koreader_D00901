@@ -8,6 +8,7 @@ Use this at your own risk: it modifies your Kindle's firmware and I am not respo
 
 1. The jailbreak, which lets the Kindle install custom update packages.
 2. MKK (the developer certificates the Kindle needs to run custom Kindlets such as KUAL).
+   MKK's 2014 certificates expired in April 2025, so the installer then applies NiLuJe's 2025 developer keystore update, which adds the certificates current KUAL is signed with.
 3. KUAL (the Kindle Unified Application Launcher), copied into `documents/`.
 4. KOReader, merged into the Kindle's root.
 5. Optionally, USBNetwork (`--usbnet`), for ssh access over USB.
@@ -65,7 +66,7 @@ For each update the installer stages one `.bin` file and pauses. Then:
 2. Press [HOME] > [MENU] > Settings > [MENU] > Update Your Kindle.
 3. Wait for the reboot, reconnect in USB drive mode and press Enter in the installer.
 
-The order is jailbreak, then MKK (then USBNetwork if requested). After the last step, eject the Kindle, open KUAL from the library and choose KOReader.
+The order is jailbreak, then MKK, then the 2025 keystore (then USBNetwork if requested). After the last step, eject the Kindle, open KUAL from the library and choose KOReader.
 
 ## If something goes wrong
 
@@ -73,6 +74,7 @@ The order is jailbreak, then MKK (then USBNetwork if requested). After the last 
 - Never force an update by rebooting the Kindle by hand.
 - If the Kindle hangs, hold the power button for about 15 seconds for a hard reboot.
 - Deregistering or an over-the-air (OTA) update can remove the developer certificates. Reinstall MKK when that happens.
+- KUAL says the title is "not signed by a registered developer": the 2025 keystore update did not apply. Copy `Update-mkk-20250419-<variant>-<prefix>_keystore-install.bin` from `DevCerts-20250419-KeyStore.zip` to the Kindle root and run Update Your Kindle again.
 
 ## USBNetwork (optional)
 
@@ -99,6 +101,7 @@ Before ejecting, bring the interface down with `sudo ip link set usb0 down`, and
 | ---------- | ---------------------------------------- | ----------------- |
 | jailbreak  | kindle-jailbreak-0.13.N-r18833.tar.xz    | 8f5c8a78e3c4      |
 | mkk        | kindle-mkk-20141129-r18833.tar.xz        | 3d7289f1ddcf      |
+| keystore   | DevCerts-20250419-KeyStore.zip           | 48426add32e3      |
 | kual       | KUAL-v2.7.37-gfcb45b5-20250419.tar.xz    | 40c4b6871221      |
 | usbnet     | kindle-usbnetwork-0.57.N-k3.zip          | 7d210bc41619      |
 | koreader   | koreader-kindle-legacy-v2026.07.1.zip    | 0ed8d5eec422      |
@@ -106,6 +109,7 @@ Before ejecting, bring the interface down with `sudo ip link set usb0 down`, and
 ## Credits
 
 - Jailbreak: https://www.mobileread.com/forums/showthread.php?t=225030
+- 2025 developer keystore (NiLuJe, 2025-04-19): https://www.mobileread.com/forums/attachment.php?attachmentid=215127&d=1745098511
 - KUAL: https://www.mobileread.com/forums/showthread.php?t=203326
 - USBNetwork: https://www.mobileread.com/forums/showthread.php?t=88004
 - KOReader: https://github.com/koreader/koreader

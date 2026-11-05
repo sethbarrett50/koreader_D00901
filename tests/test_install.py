@@ -49,6 +49,7 @@ def env(tmp_path, monkeypatch):
     src.mkdir()
     _tar(src / 'jb.tar.xz', {FILES['jailbreak']: b'jb'})
     _tar(src / 'mkk.tar.xz', {FILES['mkk']: b'mkk'})
+    _zip(src / 'keystore.zip', {FILES['keystore']: b'ks'})
     _tar(src / 'kual.tar.xz', {'KUAL-KDK-1.0.azw2': b'kual'})
     _zip(src / 'usb.zip', {FILES['usbnet']: b'usb'})
     _zip(
@@ -62,6 +63,7 @@ def env(tmp_path, monkeypatch):
     manifest = {
         'jailbreak': _pkg(src / 'jb.tar.xz'),
         'mkk': _pkg(src / 'mkk.tar.xz'),
+        'keystore': _pkg(src / 'keystore.zip'),
         'kual': _pkg(src / 'kual.tar.xz'),
         'usbnet': _pkg(src / 'usb.zip'),
         'koreader': _pkg(src / 'koreader.zip'),
@@ -71,10 +73,11 @@ def env(tmp_path, monkeypatch):
     (mount / 'documents').mkdir(parents=True)
     (mount / 'documents' / 'keep.txt').write_text('mine')
     (mount / 'Update_stale.bin').write_bytes(b'old')
+    (mount / 'Update-stale.bin').write_bytes(b'old')
     seen = []
 
     def fake_input(prompt=''):
-        seen.append(sorted(p.name for p in mount.glob('Update_*.bin')))
+        seen.append(sorted(p.name for p in mount.glob(k3_install.UPDATE_GLOB)))
         return ''
 
     monkeypatch.setattr(builtins, 'input', fake_input)
@@ -92,10 +95,16 @@ def _snapshot(root):
     return {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None for p in sorted(root.rglob('*'))}
 
 
-def test_full_install_layout_and_single_bin(env):
+def test_full_install_layout_and_single_bin(env, capsys):
     mount, args, seen = env
     assert main(args()) == 0
-    assert seen == [[_bin('jailbreak')], [_bin('mkk')]]
+    out = capsys.readouterr().out
+    assert 'Copying KUAL-KDK-1.0.azw2 to documents/' in out
+    assert 'Copying KOReader (' in out
+    n = sum(1 for t in ('koreader', 'extensions', 'launchpad') for f in (mount / t).rglob('*') if f.is_file())
+    assert f'KOReader: {n}/{n} files' in out
+    assert 'Flushing writes to the Kindle' in out
+    assert seen == [[_bin('jailbreak')], [_bin('mkk')], [_bin('keystore')]]
     assert (mount / 'documents' / 'KUAL-KDK-1.0.azw2').read_bytes() == b'kual'
     assert (mount / 'documents' / 'keep.txt').read_text() == 'mine'
     assert (mount / 'koreader' / 'koreader.sh').is_file()
@@ -106,9 +115,9 @@ def test_full_install_layout_and_single_bin(env):
 def test_usbnet_adds_one_step(env):
     _mount, args, seen = env
     main(args('--usbnet'))
-    assert len(seen) == 3
+    assert len(seen) == 4
     assert all(len(s) <= 1 for s in seen)
-    assert seen[2] == [_bin('usbnet')]
+    assert seen[3] == [_bin('usbnet')]
 
 
 def test_device_steps_mention_eject():
@@ -129,7 +138,7 @@ def test_waits_for_remount(env, monkeypatch):
 
     monkeypatch.setattr(builtins, 'input', fake_input)
     assert main(args()) == 0
-    assert len(prompts) == 3
+    assert len(prompts) == 4
     assert 'not mounted' in prompts[1]
 
 

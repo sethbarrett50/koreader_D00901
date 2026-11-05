@@ -9,6 +9,11 @@
     "sha256": "3d7289f1ddcf18cebb67053cd33ac5ecd7b4a8116bd11d3c75dd6f220a7d8d9d",
     "filename": "kindle-mkk-20141129-r18833.tar.xz"
   },
+  "keystore": {
+    "url": "https://www.mobileread.com/forums/attachment.php?attachmentid=215127&d=1745098511",
+    "sha256": "48426add32e3567aeba9eebd639b7e3d9bd1d1bed2266a55bf23473e77acc863",
+    "filename": "DevCerts-20250419-KeyStore.zip"
+  },
   "kual": {
     "url": "https://storage.gra.cloud.ovh.net/v1/AUTH_2ac4bfee353948ec8ea7fd1710574097/mr-public/KUAL/KUAL-v2.7.37-gfcb45b5-20250419.tar.xz",
     "sha256": "40c4b68712213adc7b667b9502cdd0c8099761fce1e1bf2b161b84102af54135",
