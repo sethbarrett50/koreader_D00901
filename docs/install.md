@@ -63,7 +63,8 @@ Connect the Kindle in USB drive mode and run `koreader-d00901-tui`.
 1. Pick the firmware range and model. The mount point is detected automatically, or you can type it.
 2. The **Steps** list has every step ticked except USBNetwork. Tick **USBNetwork** to add it, or
    untick steps a unit already has (the same as `--only`). Optionally tick **Delete existing books
-   first**: it shows the full list of what will be deleted and asks before anything is removed.
+   first**: it shows the full list of what will be deleted and asks before anything is removed
+   (**Keep my books** or Esc deletes nothing).
 3. **News feed list** is blank for the bundled list (see [rss.md](rss.md)), or a path to your own
    TOML. **Status display image URL** and **refresh** are for the optional Grafana status display
    (`--dashboard-url`, `--dashboard-interval`); tick its step to install it. **Show debug log** adds
