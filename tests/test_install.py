@@ -92,9 +92,15 @@ def _snapshot(root):
     return {str(p.relative_to(root)): p.read_bytes() if p.is_file() else None for p in sorted(root.rglob('*'))}
 
 
-def test_full_install_layout_and_single_bin(env):
+def test_full_install_layout_and_single_bin(env, capsys):
     mount, args, seen = env
     assert main(args()) == 0
+    out = capsys.readouterr().out
+    assert 'Copying KUAL-KDK-1.0.azw2 to documents/' in out
+    assert 'Copying KOReader (' in out
+    n = sum(1 for t in ('koreader', 'extensions', 'launchpad') for f in (mount / t).rglob('*') if f.is_file())
+    assert f'KOReader: {n}/{n} files' in out
+    assert 'Flushing writes to the Kindle' in out
     assert seen == [[_bin('jailbreak')], [_bin('mkk')]]
     assert (mount / 'documents' / 'KUAL-KDK-1.0.azw2').read_bytes() == b'kual'
     assert (mount / 'documents' / 'keep.txt').read_text() == 'mine'

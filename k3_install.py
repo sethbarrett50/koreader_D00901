@@ -191,6 +191,18 @@ def _member(root: Path, member: str | None) -> Path:
     return path
 
 
+def _copy_with_progress(pairs: list[tuple[Path, Path]], label: str) -> None:
+    """Copy (src, dst) file pairs, printing a running count so slow USB writes don't look hung."""
+    total = len(pairs)
+    every = max(1, total // 100)
+    for i, (src, dst) in enumerate(pairs, 1):
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        if i % every == 0 or i == total:
+            print(f'\r  {label}: {i}/{total} files', end='', flush=True)
+    print()
+
+
 def _update_step(mount: Path, bin_path: Path, label: str) -> None:
     for old in mount.glob('Update_*.bin'):
         old.unlink()
@@ -244,7 +256,9 @@ def main(argv: list[str] | None = None) -> int:
     manifest = load_manifest()
     roots: dict[str, Path] = {}
     needed = [k for k, _ in steps] + ['kual', 'koreader']
+    print('Getting packages (cached after the first run):')
     for key in needed:
+        print(f'  {manifest[key]["filename"]}', flush=True)
         archive = fetch(manifest[key], args.cache)
         roots[key] = extract(archive, args.cache / key)
 
@@ -253,12 +267,26 @@ def main(argv: list[str] | None = None) -> int:
     for bin_path, label in bins:
         _update_step(mount, bin_path, label)
 
+    print(f'\nCopying {kual.name} to documents/')
     (mount / 'documents').mkdir(exist_ok=True)
     shutil.copy2(kual, mount / 'documents' / kual.name)
-    for tree in ('koreader', 'extensions', 'launchpad'):
-        src = roots['koreader'] / tree
-        if src.is_dir():
-            shutil.copytree(src, mount / tree, dirs_exist_ok=True)
+
+    ko_root = roots['koreader']
+    pairs = [
+        (f, mount / f.relative_to(ko_root))
+        for tree in ('koreader', 'extensions', 'launchpad')
+        if (ko_root / tree).is_dir()
+        for f in sorted((ko_root / tree).rglob('*'))
+        if f.is_file()
+    ]
+    size_mb = sum(src.stat().st_size for src, _ in pairs) / 1e6
+    print(
+        f'Copying KOReader ({len(pairs)} files, {size_mb:.0f} MB). '
+        'This takes several minutes on a K3; leave it plugged in.'
+    )
+    _copy_with_progress(pairs, 'KOReader')
+    print('Flushing writes to the Kindle...', flush=True)
+    os.sync()
     print('\nDone. Eject the Kindle, then on the device open the KUAL book in your library and choose KOReader.')
     return 0
 
