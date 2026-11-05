@@ -192,3 +192,24 @@ def test_tui_debug_off_hides_debug_log(kindle):
     _, log_text = asyncio.run(_drive(app, kindle.mount))
     assert 'DEBUG' not in log_text
     assert 'INFO koreader_d00901' not in log_text
+
+
+def test_tui_dashboard_url_preselects_and_installs(kindle):
+    app = _app(kindle, only=['feeds'], dashboard_url='http://10.0.0.5:8090/k3.png', dashboard_interval=120)
+    _, log_text = asyncio.run(_drive(app, kindle.mount))
+    assert app.state == 'done', log_text
+    assert app.install is not None
+    assert 'dashboard' in app.install.steps
+    conf = (kindle.mount / 'extensions' / 'k3dash' / 'k3dash.conf').read_text()
+    assert 'INTERVAL=120' in conf
+    assert 'Installed the status display' in log_text
+
+
+def test_tui_dashboard_step_needs_a_url(kindle):
+    def tick_dashboard(app):
+        app.query_one('#steps-select', SelectionList).select('dashboard')
+
+    app = _app(kindle)
+    _, log_text = asyncio.run(_drive(app, kindle.mount, limit=5, setup=tick_dashboard))
+    assert app.state == 'setup'
+    assert 'status display:' in log_text

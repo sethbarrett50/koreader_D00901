@@ -1,0 +1,33 @@
+{
+	"items": [
+	{
+		"name": "K3 status dashboard",
+		"priority": 1,
+		"items": [
+		{
+			"name": "Start (refreshes until stopped)",
+			"priority": 1,
+			"action": "/bin/sh",
+			"params": "/mnt/us/extensions/k3dash/bin/k3dash.sh start",
+			"exitmenu": true,
+			"status": false
+		},
+		{
+			"name": "Show it once now",
+			"priority": 2,
+			"action": "/bin/sh",
+			"params": "/mnt/us/extensions/k3dash/bin/k3dash.sh once",
+			"exitmenu": true,
+			"status": false
+		},
+		{
+			"name": "Stop",
+			"priority": 3,
+			"action": "/bin/sh",
+			"params": "/mnt/us/extensions/k3dash/bin/k3dash.sh stop",
+			"status": false
+		}
+		]
+	}
+	]
+}

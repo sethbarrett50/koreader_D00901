@@ -1,0 +1,11 @@
+# Re-render every 2 minutes, so a Kindle fetching every 5 minutes never shows anything older than ~7.
+[Unit]
+Description=Re-render the K3 status dashboard every 2 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

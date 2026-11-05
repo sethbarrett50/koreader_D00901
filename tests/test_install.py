@@ -201,3 +201,29 @@ def test_bad_feed_file_fails_before_touching_the_kindle(env, tmp_path, capsys):
     assert main(args('--feeds', str(bad))) == 1
     assert 'section must be one of' in capsys.readouterr().err
     assert _snapshot(mount) == before
+
+
+def test_dashboard_url_installs_the_status_display(env, capsys):
+    mount, args, _seen = env
+    assert main(args('--only', 'dashboard', '--dashboard-url', 'http://10.0.0.5:8090/k3.png')) == 0
+    assert 'Installed the status display in extensions/k3dash/' in capsys.readouterr().out
+    conf = (mount / 'extensions' / 'k3dash' / 'k3dash.conf').read_text()
+    assert 'URL="http://10.0.0.5:8090/k3.png"' in conf
+    assert 'INTERVAL=300' in conf
+    assert not (mount / 'koreader' / 'koreader.sh').exists()
+
+
+@pytest.mark.parametrize(
+    ('extra', 'message'),
+    [
+        (('--only', 'dashboard'), 'needs --dashboard-url'),
+        (('--dashboard-url', 'https://grafana.home.arpa/k3.png'), 'must be http://'),
+        (('--dashboard-url', 'http://h/k3.png', '--dashboard-interval', '10'), 'at least 60'),
+    ],
+)
+def test_bad_dashboard_settings_fail_before_touching_the_kindle(env, capsys, extra, message):
+    mount, args, _seen = env
+    before = _snapshot(mount)
+    assert main(args(*extra)) == 1
+    assert message in capsys.readouterr().err
+    assert _snapshot(mount) == before

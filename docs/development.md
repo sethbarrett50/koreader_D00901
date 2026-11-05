@@ -12,6 +12,7 @@ make build          # sdist + wheel into dist/
 make smoke          # install the wheel in a clean env and run every command
 make version-check  # package changed since the last tag? then the version must be bumped
 make screenshot     # regenerate docs/tui.svg
+make dashboard-json # regenerate the K3 Grafana dashboard from scripts/make_k3_dashboard.py
 uv run python -m koreader_d00901.pins   # re-download every pin and check it (about 100 MB)
 uv run python -m koreader_d00901.feeds --check   # fetch and parse every news feed
 ```
@@ -28,6 +29,10 @@ The code lives in `src/koreader_d00901/`:
 - `battery.py`: the USBNetwork battery reader.
 - `pins.py`: the upstream pin check used by the weekly workflow.
 - `feeds.py` / `feeds.toml`: the news feed list and its rendering into KOReader's `feed_config.lua`.
+- `dashboard.py`, `k3dash/` and `k3-status.json`: the Grafana status display. The server-side
+  `koreader-d00901-dashboard` command (Pillow, from the `dashboard` extra), the KUAL extension
+  copied to the Kindle, and the Grafana dashboard. The monitor-01 systemd units are in
+  `deploy/k3-dashboard/`.
 - `errors.py`: `InstallerError` and its subclasses, which are reported to the user as one line.
 - `logs.py`: logging setup (a debug log file on every run).
 

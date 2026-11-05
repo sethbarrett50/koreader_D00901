@@ -1,0 +1,24 @@
+# Render the K3 status dashboard to /srv/k3-dashboard/k3.png (#4). Started by the .timer.
+# Install: see docs/dashboard.md in github.com/sethbarrett50/koreader_D00901.
+[Unit]
+Description=Render the K3 status dashboard for the Kindle e-ink displays
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=k3dash
+Group=k3dash
+# The token file is root:k3dash 0640 and holds a Grafana service account token (Viewer role).
+ExecStart=/opt/k3-dashboard/venv/bin/koreader-d00901-dashboard render \
+    --grafana http://127.0.0.1:3000 \
+    --uid k3-status \
+    --token-file /etc/k3-dashboard/token \
+    --tz America/New_York \
+    --out /srv/k3-dashboard/k3.png
+TimeoutStartSec=180
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/srv/k3-dashboard

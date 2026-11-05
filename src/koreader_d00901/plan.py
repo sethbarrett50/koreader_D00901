@@ -62,8 +62,8 @@ def package_keys(files: dict[str, str | None]) -> list[str]:
     return [key for key, _ in update_steps(files)] + ['kual', 'koreader']
 
 
-# Every step either front end can run, in order, with a short label. USBNetwork is the only one
-# that is off unless asked for.
+# Every step either front end can run, in order, with a short label. USBNetwork and the Grafana
+# status display are off unless asked for.
 STEP_LABELS = {
     'jailbreak': 'Jailbreak',
     'mkk': 'MKK certificates',
@@ -72,15 +72,18 @@ STEP_LABELS = {
     'kual': 'KUAL',
     'koreader': 'KOReader',
     'feeds': 'News feed list',
+    'dashboard': 'Grafana status display',
 }
+OPT_IN_STEPS = ('usbnet', 'dashboard')
 ALL_STEPS = tuple(STEP_LABELS)
 
 
-def selected_steps(only: Iterable[str] | None = None, usbnet: bool = False) -> frozenset[str]:
-    """The steps to run: exactly `only` when given (--only), else everything but USBNetwork unless asked."""
+def selected_steps(only: Iterable[str] | None = None, usbnet: bool = False, dashboard: bool = False) -> frozenset[str]:
+    """The steps to run: exactly `only` when given (--only), else every step except the opt-in ones not asked for."""
+    asked = {step for step, wanted in (('usbnet', usbnet), ('dashboard', dashboard)) if wanted}
     if only:
         unknown = set(only) - set(ALL_STEPS)
         if unknown:
             raise ConfigError(f'unknown step(s): {", ".join(sorted(unknown))}')
-        return frozenset(only) | ({'usbnet'} if usbnet else set())
-    return frozenset(step for step in ALL_STEPS if step != 'usbnet' or usbnet)
+        return frozenset(only) | asked
+    return frozenset(step for step in ALL_STEPS if step not in OPT_IN_STEPS or step in asked)

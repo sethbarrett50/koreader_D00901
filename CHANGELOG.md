@@ -4,6 +4,20 @@ All notable changes to `koreader_D00901`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-11-05
+
+### Added
+
+- Grafana status display (#4): a K3 on its charger shows a small `k3-status` dashboard on its e-ink
+  screen and refreshes it every few minutes.
+  - `koreader-d00901-dashboard render` (with the new `dashboard` extra) renders the dashboard through
+    Grafana's image renderer and turns it into a 600x800, 16-grey PNG.
+    `koreader-d00901-dashboard grafana-json` prints the dashboard to import.
+  - `--dashboard-url URL` and `--dashboard-interval SEC` (also in the TUI) install a KUAL extension
+    that fetches the image and draws it with KOReader's `fbink`.
+  - Setup for monitor-01: systemd units in `deploy/k3-dashboard/`, the renderer compose snippet and
+    the router rule in `docs/dashboard.md`.
+
 ## [0.3.0] - 2026-11-05
 
 ### Added
@@ -55,6 +69,7 @@ First release on PyPI.
 - KUAL failed with "not signed by a registered developer" because MKK's 2014 certificates expired
   in April 2025. The installer now applies NiLuJe's 2025 keystore update after MKK.
 
+[0.4.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.1.0...v0.2.0
