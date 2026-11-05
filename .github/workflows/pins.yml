@@ -1,7 +1,8 @@
 name: Pin check
 
 # Weekly: re-download every package pinned in packages.json, verify its sha256, and check it still
-# holds every file the installer stages for each serial prefix and firmware range. Runs on a
+# holds every file the installer stages for each serial prefix and firmware range, and
+# fetches every news feed in feeds.toml. Runs on a
 # schedule rather than per PR so upstream drift never blocks unrelated work.
 on:
   schedule:
@@ -12,6 +13,8 @@ on:
       - src/koreader_d00901/packages.json
       - src/koreader_d00901/plan.py
       - src/koreader_d00901/pins.py
+      - src/koreader_d00901/feeds.py
+      - src/koreader_d00901/feeds.toml
       - .github/workflows/pins.yml
 
 permissions:
@@ -38,13 +41,20 @@ jobs:
           set -o pipefail
           uv run --frozen python -m koreader_d00901.pins 2>&1 | tee pins.log
 
+      - name: Check news feeds
+        id: feeds
+        if: success() || steps.check.outcome == 'failure'
+        run: |
+          set -o pipefail
+          uv run --frozen python -m koreader_d00901.feeds --check 2>&1 | tee -a pins.log
+
       - name: Open or update the drift issue
-        if: failure() && steps.check.outcome == 'failure' && github.event_name != 'pull_request'
+        if: failure() && (steps.check.outcome == 'failure' || steps.feeds.outcome == 'failure') && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          title="Pinned upstream package check failed"
+          title="Pinned upstream package or feed check failed"
           {
             echo "The scheduled pin check failed: ${RUN_URL}"
             echo
@@ -52,7 +62,7 @@ jobs:
             tail -n 40 pins.log
             echo '```'
             echo
-            echo "Update the pin in src/koreader_d00901/packages.json (url, sha256, filename) after checking the new upstream file, or fix the member names in plan.py."
+            echo "Update the pin in src/koreader_d00901/packages.json (url, sha256, filename) after checking the new upstream file, or fix the member names in plan.py. For a feed, fix or disable it in src/koreader_d00901/feeds.toml."
           } > body.md
           number="$(gh issue list --state open --search "in:title \"${title}\"" --json number --jq '.[0].number')"
           if [ -n "${number}" ]; then

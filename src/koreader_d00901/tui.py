@@ -2,21 +2,36 @@
 
 import argparse
 import logging
+import queue
 import threading
 
 from dataclasses import dataclass
 from pathlib import Path
 
+from rich.text import Text
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ProgressBar, RichLog, Select, Static
+from textual.widgets import (
+    Button,
+    Checkbox,
+    Footer,
+    Header,
+    Input,
+    Label,
+    ProgressBar,
+    RichLog,
+    Select,
+    SelectionList,
+    Static,
+)
+from textual.widgets.selection_list import Selection
 from textual.worker import get_current_worker
 
-from koreader_d00901 import __version__, device, packages, plan
+from koreader_d00901 import __version__, device, feeds, packages, plan
 from koreader_d00901.cli import DONE_MESSAGE, add_common_args, describe
-from koreader_d00901.errors import InstallerError
+from koreader_d00901.errors import ConfigError, InstallerError
 from koreader_d00901.logs import setup_logging
 
 log = logging.getLogger(__name__)
@@ -41,9 +56,25 @@ class Cancelled(Exception):
 class Plan:
     fw: str
     prefix: str
-    usbnet: bool
+    steps: frozenset[str]
     mount: Path
+    feed_list: tuple[feeds.Feed, ...] = ()
     wipe: tuple[Path, ...] = ()
+
+
+class PanelHandler(logging.Handler):
+    """Collect log records from any thread; the app drains them into the log panel on its own thread."""
+
+    def __init__(self) -> None:
+        super().__init__(logging.WARNING)
+        self.records: queue.SimpleQueue[str] = queue.SimpleQueue()
+        self.setFormatter(logging.Formatter('%(levelname)s %(name)s: %(message)s'))
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self.records.put(self.format(record))
+        except Exception:
+            self.handleError(record)
 
 
 class ConfirmWipe(ModalScreen[bool]):
@@ -82,7 +113,8 @@ class ConfirmWipe(ModalScreen[bool]):
 class InstallerApp(App[None]):
     TITLE = 'K3 KOReader installer'
     CSS = """
-    #setup { width: 44; padding: 0 1; border: round $primary; }
+    #setup { width: 46; padding: 0 1; border: round $primary; }
+    #steps-select { height: auto; max-height: 9; }
     #setup Label { margin-top: 1; }
     #setup Button { width: 100%; margin-top: 1; }
     #run { padding: 0 1; }
@@ -106,11 +138,16 @@ class InstallerApp(App[None]):
         usbnet: bool = False,
         log_file: Path | None = None,
         wipe: bool = False,
+        feeds_file: Path | None = None,
+        only: list[str] | None = None,
+        verbose: bool = False,
     ) -> None:
         super().__init__()
         self.cache = cache
         self.log_file = log_file or cache / 'install.log'
-        self.initial = (mount, fw, prefix.upper() if prefix else None, usbnet, wipe)
+        self.initial_steps = plan.selected_steps(only, usbnet)
+        self.initial = (mount, fw, prefix.upper() if prefix else None, wipe, feeds_file, verbose)
+        self.panel_handler = PanelHandler()
         self.install: Plan | None = None
         self.state = 'setup'  # setup -> running -> waiting -> running ... -> done | failed
         self._continue = threading.Event()
@@ -118,10 +155,10 @@ class InstallerApp(App[None]):
     # Layout
 
     def compose(self) -> ComposeResult:
-        mount, fw, prefix, usbnet, wipe = self.initial
+        mount, fw, prefix, wipe, feeds_file, verbose = self.initial
         yield Header()
         with Horizontal():
-            with Vertical(id='setup'):
+            with VerticalScroll(id='setup'):
                 yield Label('Firmware (bottom of the Settings page)')
                 yield Select(
                     [(label, key) for key, label in FIRMWARE.items()],
@@ -136,10 +173,17 @@ class InstallerApp(App[None]):
                     prompt='Choose model',
                     value=prefix if prefix in MODELS else Select.NULL,
                 )
-                yield Checkbox('Install USBNetwork (SSH)', usbnet, id='usbnet')
+                yield Label('Steps to run (like --only)')
+                yield SelectionList[str](
+                    *[Selection(label, key, key in self.initial_steps) for key, label in plan.STEP_LABELS.items()],
+                    id='steps-select',
+                )
                 yield Checkbox('Delete existing books first (asks)', wipe, id='wipe')
                 yield Label('Kindle mount point')
                 yield Input(str(mount) if mount else '', placeholder='auto-detected when plugged in', id='mount')
+                yield Label('News feed list (TOML)')
+                yield Input(str(feeds_file) if feeds_file else '', placeholder='blank = bundled list', id='feeds')
+                yield Checkbox('Show debug log', verbose, id='debug')
                 yield Button('Install', variant='primary', id='install')
                 yield Button('Dry run (show plan)', id='dry-run')
             with Vertical(id='run'):
@@ -156,12 +200,36 @@ class InstallerApp(App[None]):
     def on_mount(self) -> None:
         self._steps: list[tuple[str, str]] = []
         self._marks: dict[str, str] = {}
+        package_logger = logging.getLogger('koreader_d00901')
+        if package_logger.level == logging.NOTSET:
+            package_logger.setLevel(logging.DEBUG)
+        package_logger.addHandler(self.panel_handler)
+        self.set_debug(self.query_one('#debug', Checkbox).value)
         self.refresh_kindle()
         self.set_interval(1.0, self.refresh_kindle)
+        self.set_interval(0.2, self.drain_log)
+
+    def set_debug(self, on: bool) -> None:
+        """The TUI's --verbose: stream debug records into the log panel (the log file always has them)."""
+        self.panel_handler.setLevel(logging.DEBUG if on else logging.WARNING)
+
+    @on(Checkbox.Changed, '#debug')
+    def debug_toggled(self, event: Checkbox.Changed) -> None:
+        self.set_debug(event.value)
+
+    def drain_log(self) -> None:
+        panel = self.query_one('#log', RichLog)
+        while True:
+            try:
+                line = self.panel_handler.records.get_nowait()
+            except queue.Empty:
+                return
+            panel.write(Text(line, style='dim'))
 
     # Small UI helpers (main thread only)
 
     def log_line(self, text: str) -> None:
+        self.drain_log()  # keep queued log records in order with this message
         self.query_one('#log', RichLog).write(text)
 
     def mount_path(self) -> Path | None:
@@ -205,15 +273,30 @@ class InstallerApp(App[None]):
             problems.append('choose a serial prefix')
         if mount is None or not mount.is_dir():
             problems.append('connect the Kindle in USB drive mode (or type its mount point)')
+        steps = frozenset(self.query_one('#steps-select', SelectionList).selected)
+        if not steps:
+            problems.append('tick at least one step')
+        feed_list: list[feeds.Feed] = []
+        if 'feeds' in steps:
+            value = self.query_one('#feeds', Input).value.strip()
+            try:
+                feed_list = feeds.load_feeds(Path(value).expanduser() if value else None)
+            except (ConfigError, OSError) as exc:
+                problems.append(f'feed list: {exc}')
         if problems or not isinstance(fw, str) or not isinstance(prefix, str) or mount is None:
             self.log_line('[red]Cannot start:[/] ' + '; '.join(problems) + '.')
             return None
-        return Plan(fw, prefix, self.query_one('#usbnet', Checkbox).value, mount)
+        return Plan(fw, prefix, steps, mount, tuple(feed_list))
 
     def plan_steps(self, install: Plan) -> tuple[dict[str, str | None], list[tuple[str, str]]]:
-        files = plan.select_files(install.fw, install.prefix, install.usbnet)
-        steps = plan.update_steps(files)
+        files = plan.select_files(install.fw, install.prefix, 'usbnet' in install.steps)
+        steps = [step for step in plan.update_steps(files) if step[0] in install.steps]
         return files, steps
+
+    @staticmethod
+    def copy_steps(install: Plan) -> list[tuple[str, str]]:
+        labels = {'kual': 'Copy KUAL to documents/', 'koreader': 'Copy KOReader', 'feeds': 'Write news feed list'}
+        return [(key, label) for key, label in labels.items() if key in install.steps]
 
     # Buttons
 
@@ -231,8 +314,13 @@ class InstallerApp(App[None]):
                 self.log_line(f'  {line}')
         for key, label in steps:
             self.log_line(f'  stage {files[key]} ({label}), then Update Your Kindle')
-        self.log_line('  copy KUAL-KDK-1.0.azw2 into documents/')
-        self.log_line('  merge koreader/, extensions/, launchpad/ into the Kindle root')
+        if 'kual' in install.steps:
+            self.log_line('  copy KUAL-KDK-1.0.azw2 into documents/')
+        if 'koreader' in install.steps:
+            self.log_line('  merge koreader/, extensions/, launchpad/ into the Kindle root')
+        if 'feeds' in install.steps:
+            enabled = sum(feed.enabled for feed in install.feed_list)
+            self.log_line(f'  write {len(install.feed_list)} news feeds ({enabled} enabled) to koreader/news/')
         self.log_line('Nothing was changed.')
 
     @on(Button.Pressed, '#install')
@@ -249,7 +337,9 @@ class InstallerApp(App[None]):
 
         def answered(confirmed: bool | None) -> None:
             if confirmed:
-                self.begin(Plan(install.fw, install.prefix, install.usbnet, install.mount, tuple(entries)))
+                self.begin(
+                    Plan(install.fw, install.prefix, install.steps, install.mount, install.feed_list, tuple(entries))
+                )
             else:
                 self.log_line('Kept your books; press Install again, or untick the delete option.')
 
@@ -259,11 +349,12 @@ class InstallerApp(App[None]):
         self.install = install
         _files, steps = self.plan_steps(install)
         self._steps = [('wipe', f'Delete {len(install.wipe)} old entries')] if install.wipe else []
-        self._steps += [('packages', 'Download and verify packages'), *steps]
-        self._steps += [('kual', 'Copy KUAL to documents/'), ('koreader', 'Copy KOReader')]
+        if steps or {'kual', 'koreader'} & install.steps:
+            self._steps.append(('packages', 'Download and verify packages'))
+        self._steps += [*steps, *self.copy_steps(install)]
         self._marks = {key: 'pending' for key, _ in self._steps}
         self.render_steps()
-        for widget in self.query('#setup Select, #setup Checkbox, #setup Input, #setup Button'):
+        for widget in self.query('#setup Select, #setup SelectionList, #wipe, #setup Input, #setup Button'):
             widget.disabled = True
         self.state = 'running'
         self.run_install(install)
@@ -343,12 +434,15 @@ class InstallerApp(App[None]):
                 self._ui(self.log_line, f'Deleted {removed} entries from documents/.')
                 self._ui(self.mark, current, 'done')
                 current = 'packages'
-            self._ui(self.mark, current, 'current')
             log.debug('plan: %s files=%s', install, files)
-            roots = packages.fetch_packages(
-                plan.package_keys(files), self.cache, lambda name: self._ui(self.log_line, f'Getting {name}')
-            )
-            self._ui(self.mark, current, 'done')
+            keys = [key for key, _ in steps] + [key for key in ('kual', 'koreader') if key in install.steps]
+            roots: dict[str, Path] = {}
+            if keys:
+                self._ui(self.mark, current, 'current')
+                roots = packages.fetch_packages(
+                    keys, self.cache, lambda name: self._ui(self.log_line, f'Getting {name}')
+                )
+                self._ui(self.mark, current, 'done')
 
             for key, label in steps:
                 current = key
@@ -365,26 +459,41 @@ class InstallerApp(App[None]):
                     )
                 self._ui(self.mark, key, 'done')
 
-            current = 'kual'
-            self._ui(self.mark, current, 'current')
-            device.install_kual(install.mount, packages.member_path(roots['kual'], files['kual']))
-            self._ui(self.mark, current, 'done')
+            if 'kual' in install.steps:
+                current = 'kual'
+                self._ui(self.mark, current, 'current')
+                device.install_kual(install.mount, packages.member_path(roots['kual'], files['kual']))
+                self._ui(self.mark, current, 'done')
 
-            current = 'koreader'
-            self._ui(self.mark, current, 'current')
-            pairs = device.koreader_pairs(roots['koreader'], install.mount)
-            size_mb = sum(src.stat().st_size for src, _ in pairs) / 1e6
-            self._ui(
-                self.log_line,
-                f'Copying KOReader ({len(pairs)} files, {size_mb:.0f} MB). '
-                'This takes several minutes; leave it plugged in.',
-            )
-            every = max(1, len(pairs) // 200)
-            device.copy_files(pairs, lambda i, n: self._ui(self._progress, i, n) if i % every == 0 or i == n else None)
+            if 'koreader' in install.steps:
+                current = 'koreader'
+                self._ui(self.mark, current, 'current')
+                pairs = device.koreader_pairs(roots['koreader'], install.mount)
+                size_mb = sum(src.stat().st_size for src, _ in pairs) / 1e6
+                self._ui(
+                    self.log_line,
+                    f'Copying KOReader ({len(pairs)} files, {size_mb:.0f} MB). '
+                    'This takes several minutes; leave it plugged in.',
+                )
+                every = max(1, len(pairs) // 200)
+                device.copy_files(
+                    pairs, lambda i, n: self._ui(self._progress, i, n) if i % every == 0 or i == n else None
+                )
+                self._ui(self.mark, current, 'done')
+
+            if 'feeds' in install.steps:
+                current = 'feeds'
+                self._ui(self.mark, current, 'current')
+                target = feeds.install_feeds(install.mount, list(install.feed_list))
+                enabled = sum(feed.enabled for feed in install.feed_list)
+                self._ui(self.log_line, f'Wrote {enabled} news feeds to {target}.')
+                self._ui(self.mark, current, 'done')
+
             self._ui(self.log_line, 'Flushing writes to the Kindle...')
             device.flush()
-            self._ui(self.mark, current, 'done')
-            self._ui(self._finish, True, f'[green]{DONE_MESSAGE}[/]')
+            full = install.steps >= plan.selected_steps()
+            message = DONE_MESSAGE if full else 'Done with the selected steps. Eject the Kindle before unplugging it.'
+            self._ui(self._finish, True, f'[green]{message}[/]')
         except Cancelled:
             return
         except InstallerError as exc:
@@ -400,6 +509,7 @@ class InstallerApp(App[None]):
 
     def on_unmount(self) -> None:
         self.workers.cancel_all()
+        logging.getLogger('koreader_d00901').removeHandler(self.panel_handler)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -412,7 +522,18 @@ def main(argv: list[str] | None = None) -> int:
     # Console logging would draw over the TUI, so the TUI logs to the file only.
     setup_logging(log_file, verbose=args.verbose, console=False)
     log.debug('koreader-d00901-tui %s, args=%s', __version__, vars(args))
-    InstallerApp(args.cache, args.mount, args.fw, args.prefix, args.usbnet, log_file, args.wipe_books).run()
+    InstallerApp(
+        args.cache,
+        args.mount,
+        args.fw,
+        args.prefix,
+        args.usbnet,
+        log_file,
+        args.wipe_books,
+        args.feeds,
+        args.only,
+        args.verbose,
+    ).run()
     return 0
 
 

@@ -46,8 +46,12 @@ def test_full_install_layout_and_single_bin(env, capsys):
     out = capsys.readouterr().out
     assert 'Copying KUAL-KDK-1.0.azw2 to documents/' in out
     assert 'Copying KOReader (' in out
-    n = sum(1 for t in ('koreader', 'extensions', 'launchpad') for f in (mount / t).rglob('*') if f.is_file())
+    feed_config = mount / 'koreader' / 'news' / 'feed_config.lua'
+    copied = [f for t in ('koreader', 'extensions', 'launchpad') for f in (mount / t).rglob('*') if f.is_file()]
+    n = len([f for f in copied if f != feed_config])
     assert f'KOReader: {n}/{n} files' in out
+    assert feed_config.read_text().startswith('return {--do NOT change this line')
+    assert 'news feeds to koreader/news/feed_config.lua' in out
     assert 'Flushing writes to the Kindle' in out
     assert seen == [[_bin('jailbreak')], [_bin('mkk')], [_bin('keystore')]]
     assert (mount / 'documents' / 'KUAL-KDK-1.0.azw2').read_bytes() == b'kual'
@@ -173,3 +177,27 @@ def test_only_rejects_unknown_step(env):
     _mount, args, _seen = env
     with pytest.raises(SystemExit):
         main(args('--only', 'firmware'))
+
+
+def test_only_feeds_writes_just_the_feed_list(env, tmp_path, capsys):
+    mount, args, seen = env
+    custom = tmp_path / 'my.toml'
+    custom.write_text(
+        '[[feed]]\nname = "Mine"\nsection = "engineering"\nurl = "https://example.org/feed.xml"\nlimit = 2\n'
+    )
+    assert main(args('--only', 'feeds', '--feeds', str(custom))) == 0
+    assert seen == []
+    assert 'Getting packages' not in capsys.readouterr().out
+    config = (mount / 'koreader' / 'news' / 'feed_config.lua').read_text()
+    assert '{ "https://example.org/feed.xml", limit = 2,' in config
+    assert not (mount / 'koreader' / 'koreader.sh').exists()
+
+
+def test_bad_feed_file_fails_before_touching_the_kindle(env, tmp_path, capsys):
+    mount, args, _seen = env
+    bad = tmp_path / 'bad.toml'
+    bad.write_text('[[feed]]\nname = "x"\nsection = "news"\nurl = "https://example.org"\nlimit = 1\n')
+    before = _snapshot(mount)
+    assert main(args('--feeds', str(bad))) == 1
+    assert 'section must be one of' in capsys.readouterr().err
+    assert _snapshot(mount) == before

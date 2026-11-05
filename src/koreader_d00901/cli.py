@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from koreader_d00901 import __version__, device, packages, plan
+from koreader_d00901 import __version__, device, feeds, packages, plan
 from koreader_d00901.errors import ConfigError, InstallerError
 from koreader_d00901.logs import DEFAULT_CACHE, setup_logging
 
@@ -33,6 +33,16 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--usbnet', action='store_true', help='also install USBNetwork')
     parser.add_argument(
         '--wipe-books', action='store_true', help='delete the existing books in documents/ first (asks to confirm)'
+    )
+    parser.add_argument(
+        '--only',
+        action='append',
+        choices=plan.ALL_STEPS,
+        metavar='STEP',
+        help='run only this step (repeatable): ' + ', '.join(plan.ALL_STEPS),
+    )
+    parser.add_argument(
+        '--feeds', type=Path, help='feed list TOML for KOReader News Downloader (default: bundled list)'
     )
     parser.add_argument('--cache', type=Path, default=DEFAULT_CACHE, help='download cache directory')
     parser.add_argument('--log-file', type=Path, help='debug log file (default CACHE/install.log)')
@@ -108,12 +118,14 @@ def _wipe_step(mount: Path, dry_run: bool) -> None:
 def run(args: argparse.Namespace) -> int:
     fw = _ask_valid(f'Firmware range ({"/".join(plan.FIRMWARE_RANGES)}): ', args.fw, plan.check_firmware, '--fw')
     prefix = _ask_valid(f'Serial prefix ({"/".join(plan.VARIANTS)}): ', args.prefix, plan.check_prefix, '--prefix')
-    only = set(args.only or ())
-    files = plan.select_files(fw, prefix, args.usbnet or 'usbnet' in only)
+    only = bool(args.only)
+    selected = plan.selected_steps(args.only, args.usbnet)
+    files = plan.select_files(fw, prefix, 'usbnet' in selected)
     mount = device.require_mount(args.mount)
-    steps = [step for step in plan.update_steps(files) if not only or step[0] in only]
-    copy_kual = not only or 'kual' in only
-    copy_koreader = not only or 'koreader' in only
+    steps = [step for step in plan.update_steps(files) if step[0] in selected]
+    copy_kual = 'kual' in selected
+    copy_koreader = 'koreader' in selected
+    feed_list = feeds.load_feeds(args.feeds) if 'feeds' in selected else None
     keys = [key for key, _ in steps] + ['kual'] * copy_kual + ['koreader'] * copy_koreader
     log.debug('plan: fw=%s prefix=%s usbnet=%s mount=%s files=%s', fw, prefix, args.usbnet, mount, files)
 
@@ -127,13 +139,18 @@ def run(args: argparse.Namespace) -> int:
             print(f'  would copy {plan.KUAL_FILE} into documents/')
         if copy_koreader:
             print('  would merge koreader/, extensions/, launchpad/ into the mount root')
+        if feed_list is not None:
+            enabled = sum(feed.enabled for feed in feed_list)
+            print(f'  would write {len(feed_list)} feeds ({enabled} enabled) to {"/".join(feeds.FEED_CONFIG)}')
         return 0
 
     if args.wipe_books:
         _wipe_step(mount, dry_run=False)
 
-    print('Getting packages (cached after the first run):')
-    roots = packages.fetch_packages(keys, args.cache, lambda name: print(f'  {name}', flush=True))
+    roots = {}
+    if keys:
+        print('Getting packages (cached after the first run):')
+        roots = packages.fetch_packages(keys, args.cache, lambda name: print(f'  {name}', flush=True))
     bins = [(packages.member_path(roots[key], files[key]), label) for key, label in steps]
     for bin_path, label in bins:
         _update_step(mount, bin_path, label)
@@ -143,21 +160,25 @@ def run(args: argparse.Namespace) -> int:
         print(f'\nCopying {kual.name} to documents/')
         device.install_kual(mount, kual)
 
-    if not copy_koreader:
-        device.flush()
-        print('\nDone with the selected steps. Eject the Kindle before unplugging it.')
-        return 0
+    if copy_koreader:
+        pairs = device.koreader_pairs(roots['koreader'], mount)
+        size_mb = sum(src.stat().st_size for src, _ in pairs) / 1e6
+        print(
+            f'Copying KOReader ({len(pairs)} files, {size_mb:.0f} MB). '
+            'This takes several minutes on a K3; leave it plugged in.'
+        )
+        _copy_with_progress(pairs, 'KOReader')
 
-    pairs = device.koreader_pairs(roots['koreader'], mount)
-    size_mb = sum(src.stat().st_size for src, _ in pairs) / 1e6
-    print(
-        f'Copying KOReader ({len(pairs)} files, {size_mb:.0f} MB). '
-        'This takes several minutes on a K3; leave it plugged in.'
-    )
-    _copy_with_progress(pairs, 'KOReader')
+    if feed_list is not None:
+        target = feeds.install_feeds(mount, feed_list)
+        print(f'Wrote {sum(f.enabled for f in feed_list)} news feeds to {target.relative_to(mount)}')
+
     print('Flushing writes to the Kindle...', flush=True)
     device.flush()
-    print(f'\n{DONE_MESSAGE}')
+    if only:
+        print('\nDone with the selected steps. Eject the Kindle before unplugging it.')
+    else:
+        print(f'\n{DONE_MESSAGE}')
     return 0
 
 
@@ -165,13 +186,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog='koreader-d00901', description='Install KOReader on a Kindle K3.')
     add_common_args(parser)
     parser.add_argument('--dry-run', action='store_true', help='print the plan only')
-    parser.add_argument(
-        '--only',
-        action='append',
-        choices=[key for key, _ in plan.UPDATE_STEPS] + ['kual', 'koreader'],
-        metavar='STEP',
-        help='run only this step (repeatable): jailbreak, mkk, keystore, usbnet, kual, koreader',
-    )
     args = parser.parse_args(argv)
     log_file = args.log_file or args.cache / 'install.log'
     setup_logging(log_file, verbose=args.verbose)

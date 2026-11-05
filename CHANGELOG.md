@@ -4,6 +4,18 @@ All notable changes to `koreader_D00901`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-11-05
+
+### Added
+
+- News feeds (#5): the installer writes a curated list of 13 RSS/Atom feeds (security, engineering,
+  research) to KOReader's news downloader, which each Kindle syncs itself over Wi-Fi. The list is
+  `feeds.toml` in the package; `--feeds FILE` uses your own, and `--only feeds` updates just the
+  list. `python -m koreader_d00901.feeds --check` fetches every feed, and the weekly pin workflow
+  runs it. See `docs/rss.md`.
+- TUI parity with the CLI: a **Steps** checklist (`--only`, `--usbnet`), a **News feed list** field
+  (`--feeds`) and a **Show debug log** toggle (`--verbose`).
+
 ## [0.2.1] - 2026-11-05
 
 ### Changed
@@ -43,6 +55,7 @@ First release on PyPI.
 - KUAL failed with "not signed by a registered developer" because MKK's 2014 certificates expired
   in April 2025. The installer now applies NiLuJe's 2025 keystore update after MKK.
 
+[0.3.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sethbarrett50/koreader_D00901/releases/tag/v0.1.0

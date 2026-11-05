@@ -1,7 +1,7 @@
 import asyncio
 
 from conftest import FILES, FW, PREFIX
-from textual.widgets import Button, RichLog
+from textual.widgets import Button, Checkbox, Input, RichLog, SelectionList
 
 from koreader_d00901.tui import InstallerApp
 
@@ -17,12 +17,20 @@ def _log_text(app: InstallerApp) -> str:
 
 
 async def _drive(
-    app: InstallerApp, mount, press: str = '#install', limit: int = 400, answer: str | None = None
+    app: InstallerApp,
+    mount,
+    press: str = '#install',
+    limit: int = 400,
+    answer: str | None = None,
+    setup=None,
 ) -> tuple[list[list[str]], str]:
     """Press a button, then press Continue at every device step until the install settles."""
     waits: list[list[str]] = []
     text = ''
     async with app.run_test(size=(140, 50)) as pilot:
+        if setup is not None:
+            setup(app)
+            await pilot.pause(0.05)
         app.query_one(press, Button).press()
         if answer is not None:
             # Wait for the dialog to be composed instead of sleeping a fixed time (slow CI runners).
@@ -60,7 +68,9 @@ def test_tui_full_install(kindle):
     assert (mount / 'documents' / 'keep.txt').read_text() == 'mine'
     assert (mount / 'koreader' / 'koreader.sh').is_file()
     assert (mount / 'launchpad' / 'boot.sh').is_file()
+    assert (mount / 'koreader' / 'news' / 'feed_config.lua').is_file()
     assert set(app._marks.values()) == {'done'}
+    assert 'Write news feed list' in dict(app._steps).values()
 
 
 def test_tui_usbnet_adds_a_step(kindle):
@@ -120,3 +130,65 @@ def test_tui_wipe_declined_does_not_start(kindle):
     assert 'Kept your books' in log_text
     assert (kindle.mount / 'documents' / 'novel.mobi').is_file()
     assert not (kindle.mount / 'koreader').exists()
+
+
+def test_tui_only_preselects_steps(kindle):
+    app = _app(kindle, only=['feeds'])
+    waits, log_text = asyncio.run(_drive(app, kindle.mount))
+    assert app.state == 'done', log_text
+    assert waits == []
+    assert [key for key, _ in app._steps] == ['feeds']
+    assert (kindle.mount / 'koreader' / 'news' / 'feed_config.lua').is_file()
+    assert not (kindle.mount / 'koreader' / 'koreader.sh').exists()
+    assert 'Done with the selected steps' in log_text
+
+
+def test_tui_unticking_a_step_skips_it(kindle):
+    def untick(app):
+        steps = app.query_one('#steps-select', SelectionList)
+        for key in ('jailbreak', 'mkk', 'keystore', 'koreader'):
+            steps.deselect(key)
+
+    app = _app(kindle)
+    waits, log_text = asyncio.run(_drive(app, kindle.mount, setup=untick))
+    assert app.state == 'done', log_text
+    assert waits == []
+    assert (kindle.mount / 'documents' / 'KUAL-KDK-1.0.azw2').is_file()
+    assert not (kindle.mount / 'koreader' / 'koreader.sh').exists()
+
+
+def test_tui_custom_feed_file(kindle, tmp_path):
+    custom = tmp_path / 'mine.toml'
+    custom.write_text('[[feed]]\nname = "Mine"\nsection = "research"\nurl = "https://example.org/a.xml"\nlimit = 1\n')
+    app = _app(kindle, only=['feeds'], feeds_file=custom)
+    _, log_text = asyncio.run(_drive(app, kindle.mount))
+    assert app.state == 'done', log_text
+    assert 'https://example.org/a.xml' in (kindle.mount / 'koreader' / 'news' / 'feed_config.lua').read_text()
+
+
+def test_tui_bad_feed_file_refuses_to_start(kindle, tmp_path):
+    def point_at_missing(app):
+        app.query_one('#feeds', Input).value = str(tmp_path / 'missing.toml')
+
+    app = _app(kindle)
+    _, log_text = asyncio.run(_drive(app, kindle.mount, limit=5, setup=point_at_missing))
+    assert app.state == 'setup'
+    assert 'feed list:' in log_text
+
+
+def test_tui_debug_toggle_streams_debug_log(kindle):
+    def debug_on(app):
+        app.query_one('#debug', Checkbox).value = True
+
+    app = _app(kindle, only=['feeds'])
+    _, log_text = asyncio.run(_drive(app, kindle.mount, setup=debug_on))
+    assert app.state == 'done', log_text
+    assert 'INFO koreader_d00901.feeds: wrote 20 feeds (13 enabled)' in log_text
+    assert 'DEBUG koreader_d00901.device: syncing writes to disk' in log_text
+
+
+def test_tui_debug_off_hides_debug_log(kindle):
+    app = _app(kindle, only=['feeds'])
+    _, log_text = asyncio.run(_drive(app, kindle.mount))
+    assert 'DEBUG' not in log_text
+    assert 'INFO koreader_d00901' not in log_text
