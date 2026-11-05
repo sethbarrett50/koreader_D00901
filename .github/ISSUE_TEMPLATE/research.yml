@@ -1,0 +1,31 @@
+name: Research / investigation
+description: Something to figure out before building it (battery, dashboards, feeds, hardware).
+labels: ["research"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: The question or goal.
+    validations:
+      required: true
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings so far
+      description: What is already known, with a source for each point (link, file, command output).
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: What would close this out (a doc, a measurement, a decision).
+  - type: textarea
+    id: references
+    attributes:
+      label: References

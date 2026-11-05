@@ -1,0 +1,77 @@
+name: Install problem / bug
+description: Something went wrong installing or running KOReader on a K3.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: prefix
+    attributes:
+      label: Serial prefix
+      description: The first four characters of the serial number (Settings page, or the back of the device).
+      options:
+        - B006 (Kindle Keyboard 3G, US)
+        - B008 (Kindle Keyboard Wi-Fi)
+        - B00A (Kindle Keyboard 3G, UK/Europe)
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      description: Shown at the bottom of the Settings page.
+      placeholder: "3.4.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: step
+    attributes:
+      label: Which step failed?
+      options:
+        - Downloading packages
+        - Jailbreak update
+        - MKK update
+        - 2025 keystore update
+        - USBNetwork update
+        - Copying KUAL or KOReader
+        - Launching KUAL ("not signed by a registered developer" or similar)
+        - Launching KOReader
+        - Wiping books
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: frontend
+    attributes:
+      label: How did you run it?
+      options:
+        - koreader-d00901-tui (full-screen)
+        - koreader-d00901 (terminal)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Installer version
+      description: Output of `koreader-d00901 --version`.
+      placeholder: "koreader-d00901 0.1.0"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what the Kindle or the installer showed instead.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Installer output and log
+      description: >-
+        Paste the terminal output, and the end of the debug log at ~/.cache/k3-koreader/install.log.
+        For on-device problems, typing `;dumpMessages` in the Kindle search bar writes
+        documents/all_logs_as_of_*.txt, which you can attach too.
+      render: text
+  - type: input
+    id: host
+    attributes:
+      label: Host OS
+      placeholder: "Debian 13"

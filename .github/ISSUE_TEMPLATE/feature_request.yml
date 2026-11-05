@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest something new for the installer or for the K3s.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What you want, and why.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: How we'll know it's done; checkable criteria where possible.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes and references
