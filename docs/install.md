@@ -17,8 +17,10 @@ drive, in this order:
 6. **KOReader**, merged into the Kindle's root.
 7. **News feeds**, the feed list for KOReader's news downloader (`koreader/news/feed_config.lua`).
    See [rss.md](rss.md).
+8. **Grafana status display** (optional, `--dashboard-url`), a KUAL extension that shows a homelab
+   dashboard image on a K3 left on its charger. See [dashboard.md](dashboard.md).
 
-Steps 1 to 4 are update packages that you apply on the Kindle one at a time. Steps 5 to 7 are file
+Steps 1 to 4 are update packages that you apply on the Kindle one at a time. Steps 5 to 8 are file
 copies. Optionally, the installer first deletes the books already on the unit (`--wipe-books`).
 
 ## Before you start
@@ -63,7 +65,9 @@ Connect the Kindle in USB drive mode and run `koreader-d00901-tui`.
    untick steps a unit already has (the same as `--only`). Optionally tick **Delete existing books
    first**: it shows the full list of what will be deleted and asks before anything is removed.
 3. **News feed list** is blank for the bundled list (see [rss.md](rss.md)), or a path to your own
-   TOML. **Show debug log** adds debug lines to the log panel (the same as `--verbose`).
+   TOML. **Status display image URL** and **refresh** are for the optional Grafana status display
+   (`--dashboard-url`, `--dashboard-interval`); tick its step to install it. **Show debug log** adds
+   debug lines to the log panel (the same as `--verbose`).
 4. **Dry run** shows the plan and changes nothing (the same as `--dry-run`). **Install** starts.
 5. At each update step the installer stages one file and shows what to do on the Kindle. Press
    **Eject Kindle**, unplug, and apply the update on the device (see below). When it has rebooted,
@@ -92,11 +96,14 @@ Flags (the TUI takes the same ones to preselect its choices, except where noted)
   It keeps `KUAL-KDK-1.0.azw2` and the `dictionaries` folder, and never touches anything outside
   `documents/`. With `--dry-run` it only lists what it would delete.
 - `--only STEP` (repeatable): run just these steps. STEP is `jailbreak`, `mkk`, `keystore`,
-  `usbnet`, `kual`, `koreader` or `feeds`. For example, `--only usbnet` adds USBNetwork to a unit
+  `usbnet`, `kual`, `koreader`, `feeds` or `dashboard`. For example, `--only usbnet` adds USBNetwork to a unit
   that is already set up, and `--only feeds` updates just the news feed list. In the TUI it
   preselects the **Steps** list.
 - `--feeds FILE`: the news feed list to write to the Kindle (default: the bundled list). See
   [rss.md](rss.md).
+- `--dashboard-url URL`: also install the Grafana status display, which fetches this plain
+  `http://` image URL (see [dashboard.md](dashboard.md)).
+- `--dashboard-interval SEC`: seconds between status display refreshes (default 300, minimum 60).
 - `--cache DIR`: where downloads are kept (default `~/.cache/k3-koreader`).
 - `--log-file FILE`: where the debug log goes (default `CACHE/install.log`).
 - `-v`, `--verbose`: also print debug logging on the terminal (in the TUI, it ticks **Show debug log**).

@@ -101,6 +101,7 @@ def test_readme_links_are_absolute_and_cover_every_page():
         'docs/battery.md',
         'docs/development.md',
         'docs/rss.md',
+        'docs/dashboard.md',
         'CHANGELOG.md',
     ):
         assert any(link.endswith(page) for link in links), f'README does not link {page}'

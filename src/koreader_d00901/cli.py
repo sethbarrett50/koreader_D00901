@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from koreader_d00901 import __version__, device, feeds, packages, plan
+from koreader_d00901 import __version__, dashboard, device, feeds, packages, plan
 from koreader_d00901.errors import ConfigError, InstallerError
 from koreader_d00901.logs import DEFAULT_CACHE, setup_logging
 
@@ -43,6 +43,18 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         '--feeds', type=Path, help='feed list TOML for KOReader News Downloader (default: bundled list)'
+    )
+    parser.add_argument(
+        '--dashboard-url',
+        metavar='URL',
+        help='also install the Grafana status display, fetching this http:// image URL',
+    )
+    parser.add_argument(
+        '--dashboard-interval',
+        type=int,
+        default=dashboard.DEFAULT_INTERVAL,
+        metavar='SEC',
+        help='seconds between status display refreshes (default %(default)s)',
     )
     parser.add_argument('--cache', type=Path, default=DEFAULT_CACHE, help='download cache directory')
     parser.add_argument('--log-file', type=Path, help='debug log file (default CACHE/install.log)')
@@ -115,11 +127,20 @@ def _wipe_step(mount: Path, dry_run: bool) -> None:
     print(f'Deleted {removed} entries.')
 
 
+def check_dashboard(url: str | None, interval: int) -> str:
+    """Validate --dashboard-url / --dashboard-interval for the dashboard step."""
+    if not url:
+        raise ConfigError('the dashboard step needs --dashboard-url http://host:port/k3.png')
+    dashboard.check_interval(interval)
+    return dashboard.check_url(url)
+
+
 def run(args: argparse.Namespace) -> int:
     fw = _ask_valid(f'Firmware range ({"/".join(plan.FIRMWARE_RANGES)}): ', args.fw, plan.check_firmware, '--fw')
     prefix = _ask_valid(f'Serial prefix ({"/".join(plan.VARIANTS)}): ', args.prefix, plan.check_prefix, '--prefix')
     only = bool(args.only)
-    selected = plan.selected_steps(args.only, args.usbnet)
+    selected = plan.selected_steps(args.only, args.usbnet, bool(args.dashboard_url))
+    dash_url = check_dashboard(args.dashboard_url, args.dashboard_interval) if 'dashboard' in selected else None
     files = plan.select_files(fw, prefix, 'usbnet' in selected)
     mount = device.require_mount(args.mount)
     steps = [step for step in plan.update_steps(files) if step[0] in selected]
@@ -142,6 +163,8 @@ def run(args: argparse.Namespace) -> int:
         if feed_list is not None:
             enabled = sum(feed.enabled for feed in feed_list)
             print(f'  would write {len(feed_list)} feeds ({enabled} enabled) to {"/".join(feeds.FEED_CONFIG)}')
+        if dash_url:
+            print(f'  would install the status display in {"/".join(dashboard.EXTENSION)}/ ({dash_url})')
         return 0
 
     if args.wipe_books:
@@ -172,6 +195,10 @@ def run(args: argparse.Namespace) -> int:
     if feed_list is not None:
         target = feeds.install_feeds(mount, feed_list)
         print(f'Wrote {sum(f.enabled for f in feed_list)} news feeds to {target.relative_to(mount)}')
+
+    if dash_url:
+        target = dashboard.install_extension(mount, dash_url, args.dashboard_interval)
+        print(f'Installed the status display in {target.relative_to(mount)}/ (KUAL > K3 status dashboard)')
 
     print('Flushing writes to the Kindle...', flush=True)
     device.flush()

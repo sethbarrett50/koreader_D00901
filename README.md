@@ -35,6 +35,7 @@ koreader-d00901-tui
 - Can delete the books already on a second-hand unit first, after showing you exactly what will go.
 - Sets up KOReader's news downloader with a short, curated list of security, engineering and
   research feeds, which each Kindle fetches itself over Wi-Fi.
+- Optionally turns a K3 on its charger into an e-ink Grafana status display.
 - `koreader-d00901-battery` reads and logs each unit's battery over USBNetwork, to track health and drain.
 
 ## Documentation
@@ -42,6 +43,7 @@ koreader-d00901-tui
 - [Installing](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/install.md): preparation, every flag, the on-device steps, troubleshooting, pinned packages, credits
 - [USBNetwork](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/usbnetwork.md): SSH into a K3 over USB
 - [News feeds](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/rss.md): the feed list, syncing on the Kindle, changing the list
+- [Status display](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/dashboard.md): a Grafana dashboard on a K3's screen
 - [Battery](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/battery.md): health and drain measurements per unit
 - [Development](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/development.md): make targets, code layout, CI, releasing
 - [Changelog](https://github.com/sethbarrett50/koreader_D00901/blob/main/CHANGELOG.md)

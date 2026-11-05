@@ -5,7 +5,7 @@ import logging
 import queue
 import threading
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from rich.text import Text
@@ -29,8 +29,8 @@ from textual.widgets import (
 from textual.widgets.selection_list import Selection
 from textual.worker import get_current_worker
 
-from koreader_d00901 import __version__, device, feeds, packages, plan
-from koreader_d00901.cli import DONE_MESSAGE, add_common_args, describe
+from koreader_d00901 import __version__, dashboard, device, feeds, packages, plan
+from koreader_d00901.cli import DONE_MESSAGE, add_common_args, check_dashboard, describe
 from koreader_d00901.errors import ConfigError, InstallerError
 from koreader_d00901.logs import setup_logging
 
@@ -60,6 +60,8 @@ class Plan:
     mount: Path
     feed_list: tuple[feeds.Feed, ...] = ()
     wipe: tuple[Path, ...] = ()
+    dashboard_url: str | None = None
+    dashboard_interval: int = dashboard.DEFAULT_INTERVAL
 
 
 class PanelHandler(logging.Handler):
@@ -114,7 +116,7 @@ class InstallerApp(App[None]):
     TITLE = 'K3 KOReader installer'
     CSS = """
     #setup { width: 46; padding: 0 1; border: round $primary; }
-    #steps-select { height: auto; max-height: 9; }
+    #steps-select { height: auto; max-height: 10; }
     #setup Label { margin-top: 1; }
     #setup Button { width: 100%; margin-top: 1; }
     #run { padding: 0 1; }
@@ -141,12 +143,15 @@ class InstallerApp(App[None]):
         feeds_file: Path | None = None,
         only: list[str] | None = None,
         verbose: bool = False,
+        dashboard_url: str | None = None,
+        dashboard_interval: int = dashboard.DEFAULT_INTERVAL,
     ) -> None:
         super().__init__()
         self.cache = cache
         self.log_file = log_file or cache / 'install.log'
-        self.initial_steps = plan.selected_steps(only, usbnet)
+        self.initial_steps = plan.selected_steps(only, usbnet, bool(dashboard_url))
         self.initial = (mount, fw, prefix.upper() if prefix else None, wipe, feeds_file, verbose)
+        self.initial_dashboard = (dashboard_url or '', dashboard_interval)
         self.panel_handler = PanelHandler()
         self.install: Plan | None = None
         self.state = 'setup'  # setup -> running -> waiting -> running ... -> done | failed
@@ -183,6 +188,11 @@ class InstallerApp(App[None]):
                 yield Input(str(mount) if mount else '', placeholder='auto-detected when plugged in', id='mount')
                 yield Label('News feed list (TOML)')
                 yield Input(str(feeds_file) if feeds_file else '', placeholder='blank = bundled list', id='feeds')
+                dash_url, dash_interval = self.initial_dashboard
+                yield Label('Status display image URL')
+                yield Input(dash_url, placeholder='http://host:port/k3.png', id='dashboard-url')
+                yield Label('Status display refresh (seconds)')
+                yield Input(str(dash_interval), type='integer', id='dashboard-interval')
                 yield Checkbox('Show debug log', verbose, id='debug')
                 yield Button('Install', variant='primary', id='install')
                 yield Button('Dry run (show plan)', id='dry-run')
@@ -283,10 +293,18 @@ class InstallerApp(App[None]):
                 feed_list = feeds.load_feeds(Path(value).expanduser() if value else None)
             except (ConfigError, OSError) as exc:
                 problems.append(f'feed list: {exc}')
+        dash_url = None
+        dash_interval = dashboard.DEFAULT_INTERVAL
+        if 'dashboard' in steps:
+            try:
+                dash_interval = int(self.query_one('#dashboard-interval', Input).value or dashboard.DEFAULT_INTERVAL)
+                dash_url = check_dashboard(self.query_one('#dashboard-url', Input).value.strip(), dash_interval)
+            except (ConfigError, ValueError) as exc:
+                problems.append(f'status display: {exc}')
         if problems or not isinstance(fw, str) or not isinstance(prefix, str) or mount is None:
             self.log_line('[red]Cannot start:[/] ' + '; '.join(problems) + '.')
             return None
-        return Plan(fw, prefix, steps, mount, tuple(feed_list))
+        return Plan(fw, prefix, steps, mount, tuple(feed_list), (), dash_url, dash_interval)
 
     def plan_steps(self, install: Plan) -> tuple[dict[str, str | None], list[tuple[str, str]]]:
         files = plan.select_files(install.fw, install.prefix, 'usbnet' in install.steps)
@@ -295,7 +313,12 @@ class InstallerApp(App[None]):
 
     @staticmethod
     def copy_steps(install: Plan) -> list[tuple[str, str]]:
-        labels = {'kual': 'Copy KUAL to documents/', 'koreader': 'Copy KOReader', 'feeds': 'Write news feed list'}
+        labels = {
+            'kual': 'Copy KUAL to documents/',
+            'koreader': 'Copy KOReader',
+            'feeds': 'Write news feed list',
+            'dashboard': 'Install the status display',
+        }
         return [(key, label) for key, label in labels.items() if key in install.steps]
 
     # Buttons
@@ -321,6 +344,8 @@ class InstallerApp(App[None]):
         if 'feeds' in install.steps:
             enabled = sum(feed.enabled for feed in install.feed_list)
             self.log_line(f'  write {len(install.feed_list)} news feeds ({enabled} enabled) to koreader/news/')
+        if 'dashboard' in install.steps:
+            self.log_line(f'  install the status display in extensions/k3dash/ ({install.dashboard_url})')
         self.log_line('Nothing was changed.')
 
     @on(Button.Pressed, '#install')
@@ -337,9 +362,7 @@ class InstallerApp(App[None]):
 
         def answered(confirmed: bool | None) -> None:
             if confirmed:
-                self.begin(
-                    Plan(install.fw, install.prefix, install.steps, install.mount, install.feed_list, tuple(entries))
-                )
+                self.begin(replace(install, wipe=tuple(entries)))
             else:
                 self.log_line('Kept your books; press Install again, or untick the delete option.')
 
@@ -489,6 +512,13 @@ class InstallerApp(App[None]):
                 self._ui(self.log_line, f'Wrote {enabled} news feeds to {target}.')
                 self._ui(self.mark, current, 'done')
 
+            if 'dashboard' in install.steps and install.dashboard_url:
+                current = 'dashboard'
+                self._ui(self.mark, current, 'current')
+                target = dashboard.install_extension(install.mount, install.dashboard_url, install.dashboard_interval)
+                self._ui(self.log_line, f'Installed the status display in {target} (KUAL > K3 status dashboard).')
+                self._ui(self.mark, current, 'done')
+
             self._ui(self.log_line, 'Flushing writes to the Kindle...')
             device.flush()
             full = install.steps >= plan.selected_steps()
@@ -533,6 +563,8 @@ def main(argv: list[str] | None = None) -> int:
         args.feeds,
         args.only,
         args.verbose,
+        args.dashboard_url,
+        args.dashboard_interval,
     ).run()
     return 0
 

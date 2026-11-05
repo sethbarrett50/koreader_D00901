@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 UV ?= uv
 
-.PHONY: help sync format check lint typecheck test ci build smoke version-check screenshot
+.PHONY: help sync format check lint typecheck test ci build smoke version-check screenshot dashboard-json
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z0-9_.-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -43,6 +43,8 @@ smoke: ## Install the built wheel in a clean env and run both commands
 	$(UV) run --isolated --no-project --with dist/*.whl koreader-d00901-battery --version
 	$(UV) run --isolated --no-project --with dist/*.whl python -c "from koreader_d00901.packages import load_manifest; assert len(load_manifest()) == 6"
 	$(UV) run --isolated --no-project --with dist/*.whl python -m koreader_d00901.feeds --lua > /dev/null
+	$(UV) run --isolated --no-project --with dist/*.whl koreader-d00901-dashboard grafana-json > /dev/null
+	$(UV) run --isolated --no-project --with "$$(ls dist/*.whl)[dashboard]" python -c "import PIL; from koreader_d00901 import dashboard"
 
 version-check: ## Fail if src/ or dependencies changed since the last vX.Y.Z tag without a version bump
 	@last="$$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null)"; \
@@ -58,3 +60,6 @@ version-check: ## Fail if src/ or dependencies changed since the last vX.Y.Z tag
 
 screenshot: ## Regenerate docs/tui.svg from the TUI
 	$(UV) run python scripts/screenshot.py
+
+dashboard-json: ## Regenerate src/koreader_d00901/k3-status.json from scripts/make_k3_dashboard.py
+	$(UV) run python scripts/make_k3_dashboard.py
