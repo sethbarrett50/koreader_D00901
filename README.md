@@ -67,6 +67,7 @@ Flags (both commands take the same ones, except that `--dry-run` is CLI-only):
 - `--usbnet`: also install USBNetwork.
 - `--wipe-books`: delete the existing books in `documents/` before installing, which is handy for second-hand units. It lists everything it will delete and asks you to type `wipe` (the TUI shows a confirmation dialog). It keeps `KUAL-KDK-1.0.azw2` and the `dictionaries` folder, and never touches anything outside `documents/`. With `--dry-run` it only lists what it would delete.
 - `--cache DIR`: where downloads are kept (default `~/.cache/k3-koreader`).
+- `--only STEP` (CLI only, repeatable): run just these steps. STEP is `jailbreak`, `mkk`, `keystore`, `usbnet`, `kual` or `koreader`. For example, `--only usbnet` adds USBNetwork to a unit that is already set up.
 - `--log-file FILE`: where the debug log goes (default `CACHE/install.log`).
 - `-v`, `--verbose`: also print debug logging on the terminal (CLI only).
 - `--version`: print the version.
@@ -111,6 +112,10 @@ sudo ip link set usb0 up
 (The older equivalent is `sudo ifconfig usb0 192.168.2.1`.) Then use `ssh root@192.168.2.2`. Login is passwordless only over USB with Wi-Fi mode off.
 
 Before ejecting, bring the interface down with `sudo ip link set usb0 down`, and enter `~usbNetwork` again on the Kindle to switch back to USB drive mode.
+
+## Battery
+
+`koreader-d00901-battery` reads a unit's battery over USBNetwork (`ssh root@192.168.2.2`) and logs it per serial number in `~/.cache/k3-koreader/battery.csv`. Run it again later to see the drain since the previous reading. `--raw` prints every field the Kindle reports, and `--note TEXT` labels the reading. The procedure and the per-unit results are in [docs/battery.md](docs/battery.md).
 
 ## Pinned packages
 

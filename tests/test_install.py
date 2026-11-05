@@ -150,3 +150,26 @@ def test_fetch_rejects_non_bare_filename(tmp_path, name):
     with pytest.raises(ValueError):
         fetch(pkg, cache)
     assert not cache.exists()
+
+
+def test_only_usbnet_stages_just_usbnet(env, capsys):
+    mount, args, seen = env
+    assert main(args('--only', 'usbnet')) == 0
+    assert seen == [[_bin('usbnet')]]
+    assert not (mount / 'koreader').exists()
+    assert not (mount / 'documents' / 'KUAL-KDK-1.0.azw2').exists()
+    assert 'Done with the selected steps' in capsys.readouterr().out
+
+
+def test_only_keystore_and_koreader(env):
+    mount, args, seen = env
+    assert main(args('--only', 'keystore', '--only', 'koreader')) == 0
+    assert seen == [[_bin('keystore')]]
+    assert (mount / 'koreader' / 'koreader.sh').is_file()
+    assert not (mount / 'documents' / 'KUAL-KDK-1.0.azw2').exists()
+
+
+def test_only_rejects_unknown_step(env):
+    _mount, args, _seen = env
+    with pytest.raises(SystemExit):
+        main(args('--only', 'firmware'))

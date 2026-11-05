@@ -62,6 +62,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: false  # nothing is checked out in this job, so there is nothing to cache
 
       - name: Publish to PyPI
         run: uv publish --trusted-publishing always dist/*
