@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 UV ?= uv
 
-.PHONY: help sync format check lint typecheck test ci build smoke version-check
+.PHONY: help sync format check lint typecheck test ci build smoke version-check screenshot
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z0-9_.-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -54,3 +54,6 @@ version-check: ## Fail if src/ or dependencies changed since the last vX.Y.Z tag
 	  echo "bump it (uv version --bump patch|minor|major) so the next PyPI release gets a new version"; exit 1; \
 	fi; \
 	echo "version $$version > $$last: ok"
+
+screenshot: ## Regenerate docs/tui.svg from the TUI
+	$(UV) run python scripts/screenshot.py

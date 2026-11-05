@@ -22,7 +22,7 @@ first `--raw` reading from unit 1 settles it, and this page will be updated with
 ## Taking a reading
 
 1. Install USBNetwork on the unit if it does not have it yet. This runs only that step:
-   `koreader-d00901 --only usbnet`.
+   `koreader-d00901 --only usbnet`. See [usbnetwork.md](usbnetwork.md) for the details.
 2. On the Kindle's search bar: `;debugOn`, `~usbNetwork`, `;debugOff`.
 3. On the computer: `sudo ip addr add 192.168.2.1/24 dev usb0 && sudo ip link set usb0 up`.
 4. `koreader-d00901-battery --note "unit 1" --raw`
