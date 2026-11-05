@@ -1,18 +1,13 @@
 import builtins
-import hashlib
-import io
 import shutil
-import tarfile
-import zipfile
 
 import pytest
 
-import k3_install
+from conftest import FILES, FW, PREFIX
 
-from k3_install import fetch, main, select_files
-
-FW, PREFIX = '3.3-3.4', 'B006'
-FILES = select_files(FW, PREFIX, True)
+from koreader_d00901 import cli, device, packages
+from koreader_d00901.cli import main
+from koreader_d00901.packages import fetch
 
 
 def _bin(key: str) -> str:
@@ -21,63 +16,13 @@ def _bin(key: str) -> str:
     return member.split('/')[-1]
 
 
-def _tar(path, members):
-    with tarfile.open(path, 'w:xz') as tf:
-        for name, data in members.items():
-            info = tarfile.TarInfo(name)
-            info.size = len(data)
-            tf.addfile(info, io.BytesIO(data))
-
-
-def _zip(path, members):
-    with zipfile.ZipFile(path, 'w') as zf:
-        for name, data in members.items():
-            zf.writestr(name, data)
-
-
-def _pkg(path):
-    return {
-        'url': path.as_uri(),
-        'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
-        'filename': path.name,
-    }
-
-
 @pytest.fixture
-def env(tmp_path, monkeypatch):
-    src = tmp_path / 'src'
-    src.mkdir()
-    _tar(src / 'jb.tar.xz', {FILES['jailbreak']: b'jb'})
-    _tar(src / 'mkk.tar.xz', {FILES['mkk']: b'mkk'})
-    _zip(src / 'keystore.zip', {FILES['keystore']: b'ks'})
-    _tar(src / 'kual.tar.xz', {'KUAL-KDK-1.0.azw2': b'kual'})
-    _zip(src / 'usb.zip', {FILES['usbnet']: b'usb'})
-    _zip(
-        src / 'koreader.zip',
-        {
-            'koreader/koreader.sh': b'sh',
-            'extensions/koreader/menu.json': b'{}',
-            'launchpad/boot.sh': b'b',
-        },
-    )
-    manifest = {
-        'jailbreak': _pkg(src / 'jb.tar.xz'),
-        'mkk': _pkg(src / 'mkk.tar.xz'),
-        'keystore': _pkg(src / 'keystore.zip'),
-        'kual': _pkg(src / 'kual.tar.xz'),
-        'usbnet': _pkg(src / 'usb.zip'),
-        'koreader': _pkg(src / 'koreader.zip'),
-    }
-    monkeypatch.setattr(k3_install, 'load_manifest', lambda: manifest)
-    mount = tmp_path / 'mount'
-    (mount / 'documents').mkdir(parents=True)
-    (mount / 'documents' / 'keep.txt').write_text('mine')
-    (mount / 'Update_stale.bin').write_bytes(b'old')
-    (mount / 'Update-stale.bin').write_bytes(b'old')
+def env(kindle, monkeypatch):
+    mount = kindle.mount
     seen = []
 
     def fake_input(prompt=''):
-        seen.append(sorted(p.name for p in mount.glob(k3_install.UPDATE_GLOB)))
+        seen.append(sorted(p.name for p in mount.glob(device.UPDATE_GLOB)))
         return ''
 
     monkeypatch.setattr(builtins, 'input', fake_input)
@@ -85,7 +30,7 @@ def env(tmp_path, monkeypatch):
     def args(*extra):
         return [
             "--mount", str(mount), "--fw", FW, "--prefix", PREFIX,
-            "--cache", str(tmp_path / "cache"), *extra,
+            "--cache", str(kindle.cache), *extra,
         ]  # fmt: skip
 
     return mount, args, seen
@@ -121,7 +66,7 @@ def test_usbnet_adds_one_step(env):
 
 
 def test_device_steps_mention_eject():
-    assert 'eject' in k3_install.DEVICE_STEPS.lower()
+    assert 'eject' in cli.DEVICE_STEPS.lower()
 
 
 def test_waits_for_remount(env, monkeypatch):
@@ -149,21 +94,45 @@ def test_dry_run_changes_nothing_and_does_not_fetch(env, monkeypatch):
     def boom(*a, **k):
         raise AssertionError('fetch called')
 
-    monkeypatch.setattr(k3_install, 'fetch', boom)
+    monkeypatch.setattr(packages, 'fetch', boom)
     assert main(args('--dry-run')) == 0
     assert _snapshot(mount) == before
     assert seen == []
 
 
-def test_bad_prefix_exits_before_copying(env):
+def test_bad_prefix_exits_before_copying(env, capsys):
     mount, args, _seen = env
     before = _snapshot(mount)
     argv = args()
     argv[argv.index(PREFIX)] = 'ZZZZ'
-    with pytest.raises(SystemExit) as exc:
-        main(argv)
-    assert exc.value.code not in (0, None)
+    assert main(argv) == 1
+    assert 'error: --prefix: unsupported serial prefix' in capsys.readouterr().err
     assert _snapshot(mount) == before
+
+
+def test_missing_kindle_is_a_clean_error(kindle, monkeypatch, capsys):
+    monkeypatch.setattr(device, 'find_mount', lambda: None)
+    argv = ['--fw', FW, '--prefix', PREFIX, '--cache', str(kindle.cache)]
+    assert main(argv) == 1
+    assert 'no mounted volume labelled Kindle' in capsys.readouterr().err
+
+
+def test_download_failure_is_a_clean_error_and_logged(env, kindle, capsys):
+    _mount, args, _seen = env
+    kindle.manifest['jailbreak']['url'] = (kindle.cache.parent / 'gone.tar.xz').as_uri()
+    assert main(args()) == 1
+    err = capsys.readouterr().err
+    assert 'could not download' in err
+    log_text = (kindle.cache / 'install.log').read_text()
+    assert 'DEBUG' in log_text
+    assert 'install failed' in log_text
+    assert 'Traceback' in log_text
+
+
+def test_verbose_logs_debug_to_console(env, capsys):
+    _mount, args, _seen = env
+    assert main(args('--dry-run', '--verbose')) == 0
+    assert 'DEBUG: plan:' in capsys.readouterr().err
 
 
 def test_prompts_reprompt_on_bad_input(env, monkeypatch):

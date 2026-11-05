@@ -4,7 +4,7 @@ Use this at your own risk: it modifies your Kindle's firmware and I am not respo
 
 ## What this does
 
-`k3_install.py` downloads pinned, checksum-verified packages and stages them on a Kindle Keyboard (K3) that is mounted as a USB drive. It chains:
+`koreader-d00901` (the `koreader_D00901` Python package) downloads pinned, checksum-verified packages and stages them on a Kindle Keyboard (K3) that is mounted as a USB drive. It chains:
 
 1. The jailbreak, which lets the Kindle install custom update packages.
 2. MKK (the developer certificates the Kindle needs to run custom Kindlets such as KUAL).
@@ -35,19 +35,27 @@ Firmware 3.0-3.2 uses the jailbreak file marked `-3.0-to-3.2`. Firmware 3.3-3.4 
 
 ## Running the installer
 
-Connect the Kindle in USB drive mode and run a dry run first. It prints the plan and changes nothing:
+Clone the repo, then connect the Kindle in USB drive mode. The easiest way is the full-screen installer:
 
 ```
-uv run k3_install.py --dry-run
+uv run koreader-d00901-tui
+```
+
+Pick the firmware range and serial prefix, press **Install**, and follow the on-screen steps. Between updates it shows what to do on the Kindle, has an **Eject Kindle** button, and waits for **Continue**. **Dry run** shows the plan without changing anything.
+
+The same install also runs as a plain terminal script. Do a dry run first: it prints the plan and changes nothing.
+
+```
+uv run koreader-d00901 --dry-run
 ```
 
 Then run it for real:
 
 ```
-uv run k3_install.py
+uv run koreader-d00901
 ```
 
-Flags:
+Flags (both commands take the same ones, except that `--dry-run` is CLI-only):
 
 - `--dry-run`: print the plan only.
 - `--mount PATH`: the Kindle's USB mount point. Without it the installer looks for a volume labelled Kindle.
@@ -55,6 +63,11 @@ Flags:
 - `--prefix PREFIX`: serial prefix, `B006`, `B008` or `B00A`. Asked interactively if omitted.
 - `--usbnet`: also install USBNetwork.
 - `--cache DIR`: where downloads are kept (default `~/.cache/k3-koreader`).
+- `--log-file FILE`: where the debug log goes (default `CACHE/install.log`).
+- `-v`, `--verbose`: also print debug logging on the terminal (CLI only).
+- `--version`: print the version.
+
+Every run writes a debug log. If an install fails, check `~/.cache/k3-koreader/install.log` first.
 
 Each download is checked against the sha256 in `packages.json` and rejected if it does not match.
 
@@ -123,3 +136,12 @@ make typecheck  # ty check
 make test       # pytest
 make ci         # everything CI runs, without fixes
 ```
+
+The code lives in `src/koreader_d00901/`:
+
+- `plan.py`: which files a given serial prefix and firmware range need.
+- `packages.py`: downloading, verifying and unpacking the packages pinned in `packages.json`.
+- `device.py`: everything that touches the Kindle's USB volume.
+- `cli.py` / `tui.py`: the two front ends.
+- `errors.py`: `InstallerError` and its subclasses, which are reported to the user as one line.
+- `logs.py`: logging setup (a debug log file on every run).
