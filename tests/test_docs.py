@@ -27,7 +27,13 @@ REQUIRED = {
         '3.0-3.2',
         '3.3-3.4',
     ],
-    'Running the installer': ['uv run koreader-d00901', 'uv run koreader-d00901-tui', 'install.log'],
+    'Running the installer': [
+        'uv tool install koreader_D00901',
+        'uvx --from koreader_D00901',
+        'uv run koreader-d00901',
+        'uv run koreader-d00901-tui',
+        'install.log',
+    ],
     'On the Kindle': [
         'Eject and unplug',
         '[HOME] > [MENU] > Settings > [MENU] > Update Your Kindle',
@@ -99,3 +105,9 @@ def test_pins_listed():
     for name, pkg in manifest.items():
         assert pkg['filename'] in body, f'{name} filename missing'
         assert pkg['sha256'][:12] in body, f'{name} sha256 prefix missing'
+
+
+def test_release_steps_documented():
+    body = section('Development')
+    for needle in ('### Releasing', 'release.yml', 'trusted publisher', 'environment `pypi`', 'git tag v'):
+        assert needle in body, f'Development lacks {needle!r}'
