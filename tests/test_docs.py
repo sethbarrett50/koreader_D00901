@@ -27,7 +27,7 @@ REQUIRED = {
         '3.0-3.2',
         '3.3-3.4',
     ],
-    'Running the installer': ['uv run k3_install.py'],
+    'Running the installer': ['uv run koreader-d00901', 'uv run koreader-d00901-tui', 'install.log'],
     'On the Kindle': [
         'Eject and unplug',
         '[HOME] > [MENU] > Settings > [MENU] > Update Your Kindle',
@@ -84,17 +84,17 @@ def test_risk_note_near_top():
 
 
 def test_every_flag_documented():
-    source = (ROOT / 'k3_install.py').read_text()
+    source = (ROOT / 'src' / 'koreader_d00901' / 'cli.py').read_text()
     flags = re.findall(r'add_argument\(\s*[\'"](--[a-z-]+)[\'"]', source)
     assert flags
     body = section('Running the installer')
     for flag in flags:
         assert flag in body, f'flag {flag} not documented'
-    assert body.index('--dry-run') < body.index('uv run k3_install.py\n')
+    assert body.index('--dry-run') < body.index('uv run koreader-d00901\n')
 
 
 def test_pins_listed():
-    manifest = json.loads((ROOT / 'packages.json').read_text())
+    manifest = json.loads((ROOT / 'src' / 'koreader_d00901' / 'packages.json').read_text())
     body = section('Pinned packages')
     for name, pkg in manifest.items():
         assert pkg['filename'] in body, f'{name} filename missing'

@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import k3_install
+from koreader_d00901 import packages, plan
+from koreader_d00901.errors import ConfigError
 
 VARIANTS = {'B006': 'k3g', 'B008': 'k3w', 'B00A': 'k3gb'}
 
@@ -14,7 +15,7 @@ VARIANTS = {'B006': 'k3g', 'B008': 'k3w', 'B00A': 'k3gb'}
 @pytest.mark.parametrize('usbnet', [True, False])
 def test_select_files(prefix, variant, fw, usbnet):
     suffix = '-3.0-to-3.2' if fw == '3.0-3.2' else ''
-    got = k3_install.select_files(fw, prefix, usbnet)
+    got = plan.select_files(fw, prefix, usbnet)
     assert got == {
         'jailbreak': f'Jailbreak/Update_jailbreak_0.13.N_{variant}{suffix}_install.bin',
         'mkk': f'DevCerts/Update_mkk-20141129-{variant}-{prefix}_install.bin',
@@ -25,25 +26,25 @@ def test_select_files(prefix, variant, fw, usbnet):
 
 
 def test_prefix_case_insensitive():
-    assert k3_install.select_files('3.3-3.4', 'b00a', False) == k3_install.select_files('3.3-3.4', 'B00A', False)
+    assert plan.select_files('3.3-3.4', 'b00a', False) == plan.select_files('3.3-3.4', 'B00A', False)
 
 
 @pytest.mark.parametrize('prefix', ['B009', '', 'B0', 'B006X'])
 def test_bad_prefix(prefix):
-    with pytest.raises(ValueError):
-        k3_install.select_files('3.3-3.4', prefix, False)
+    with pytest.raises(ConfigError):
+        plan.select_files('3.3-3.4', prefix, False)
 
 
 @pytest.mark.parametrize('fw', ['3.5', '', '3.0', '3.0-3.4'])
 def test_bad_fw(fw):
-    with pytest.raises(ValueError):
-        k3_install.select_files(fw, 'B006', False)
+    with pytest.raises(ConfigError):
+        plan.select_files(fw, 'B006', False)
 
 
 def test_manifest_keys():
-    manifest = k3_install.load_manifest()
+    manifest = packages.load_manifest()
     assert set(manifest) == {'jailbreak', 'mkk', 'keystore', 'kual', 'usbnet', 'koreader'}
     for entry in manifest.values():
         assert set(entry) == {'url', 'sha256', 'filename'}
-    path = Path(k3_install.__file__).parent / 'packages.json'
+    path = Path(packages.__file__).parent / 'packages.json'
     assert json.loads(path.read_text()) == manifest

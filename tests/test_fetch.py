@@ -5,7 +5,8 @@ import zipfile
 
 import pytest
 
-from k3_install import ChecksumError, UnsafeArchiveError, extract, fetch
+from koreader_d00901.errors import ChecksumError, UnsafeArchiveError
+from koreader_d00901.packages import extract, fetch
 
 
 def make_pkg(tmp_path, data=b'payload', sha=None):
