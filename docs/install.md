@@ -15,8 +15,10 @@ drive, in this order:
 4. **USBNetwork** (optional, `--usbnet`), for SSH over USB. See [usbnetwork.md](usbnetwork.md).
 5. **KUAL** (the Kindle Unified Application Launcher), copied into `documents/`.
 6. **KOReader**, merged into the Kindle's root.
+7. **News feeds**, the feed list for KOReader's news downloader (`koreader/news/feed_config.lua`).
+   See [rss.md](rss.md).
 
-Steps 1 to 4 are update packages that you apply on the Kindle one at a time. Steps 5 and 6 are file
+Steps 1 to 4 are update packages that you apply on the Kindle one at a time. Steps 5 to 7 are file
 copies. Optionally, the installer first deletes the books already on the unit (`--wipe-books`).
 
 ## Before you start
@@ -57,13 +59,16 @@ Connect the Kindle in USB drive mode and run `koreader-d00901-tui`.
 ![The full-screen installer](https://raw.githubusercontent.com/sethbarrett50/koreader_D00901/main/docs/tui.svg)
 
 1. Pick the firmware range and model. The mount point is detected automatically, or you can type it.
-2. Optionally tick **Also install USBNetwork** and **Delete existing books first**. Ticking the
-   second shows the full list of what will be deleted and asks before anything is removed.
-3. **Dry run** shows the plan and changes nothing. **Install** starts.
-4. At each update step the installer stages one file and shows what to do on the Kindle. Press
+2. The **Steps** list has every step ticked except USBNetwork. Tick **USBNetwork** to add it, or
+   untick steps a unit already has (the same as `--only`). Optionally tick **Delete existing books
+   first**: it shows the full list of what will be deleted and asks before anything is removed.
+3. **News feed list** is blank for the bundled list (see [rss.md](rss.md)), or a path to your own
+   TOML. **Show debug log** adds debug lines to the log panel (the same as `--verbose`).
+4. **Dry run** shows the plan and changes nothing (the same as `--dry-run`). **Install** starts.
+5. At each update step the installer stages one file and shows what to do on the Kindle. Press
    **Eject Kindle**, unplug, and apply the update on the device (see below). When it has rebooted,
    plug it back in and press **Continue**. Continue waits until the Kindle is mounted again.
-5. After the last copy, press **Eject Kindle** and open KOReader (see below).
+6. After the last copy, press **Eject Kindle** and open KOReader (see below).
 
 ## The terminal installer
 
@@ -77,7 +82,7 @@ koreader-d00901
 
 Flags (the TUI takes the same ones to preselect its choices, except where noted):
 
-- `--dry-run` (CLI only): print the plan only.
+- `--dry-run` (CLI only; the TUI has a **Dry run** button): print the plan only.
 - `--mount PATH`: the Kindle's USB mount point. Without it the installer looks for a volume labelled Kindle.
 - `--fw RANGE`: firmware range, `3.0-3.2` or `3.3-3.4`. Asked interactively if omitted.
 - `--prefix PREFIX`: serial prefix, `B006`, `B008` or `B00A`. Asked interactively if omitted.
@@ -86,12 +91,15 @@ Flags (the TUI takes the same ones to preselect its choices, except where noted)
   units. It lists everything it will delete and asks you to type `wipe` (the TUI shows a dialog).
   It keeps `KUAL-KDK-1.0.azw2` and the `dictionaries` folder, and never touches anything outside
   `documents/`. With `--dry-run` it only lists what it would delete.
-- `--only STEP` (CLI only, repeatable): run just these steps. STEP is `jailbreak`, `mkk`,
-  `keystore`, `usbnet`, `kual` or `koreader`. For example, `--only usbnet` adds USBNetwork to a
-  unit that is already set up.
+- `--only STEP` (repeatable): run just these steps. STEP is `jailbreak`, `mkk`, `keystore`,
+  `usbnet`, `kual`, `koreader` or `feeds`. For example, `--only usbnet` adds USBNetwork to a unit
+  that is already set up, and `--only feeds` updates just the news feed list. In the TUI it
+  preselects the **Steps** list.
+- `--feeds FILE`: the news feed list to write to the Kindle (default: the bundled list). See
+  [rss.md](rss.md).
 - `--cache DIR`: where downloads are kept (default `~/.cache/k3-koreader`).
 - `--log-file FILE`: where the debug log goes (default `CACHE/install.log`).
-- `-v`, `--verbose` (CLI only): also print debug logging on the terminal.
+- `-v`, `--verbose`: also print debug logging on the terminal (in the TUI, it ticks **Show debug log**).
 - `--version`: print the version.
 
 Every download is checked against the sha256 pinned in the package and rejected if it does not

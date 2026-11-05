@@ -13,6 +13,7 @@ make smoke          # install the wheel in a clean env and run every command
 make version-check  # package changed since the last tag? then the version must be bumped
 make screenshot     # regenerate docs/tui.svg
 uv run python -m koreader_d00901.pins   # re-download every pin and check it (about 100 MB)
+uv run python -m koreader_d00901.feeds --check   # fetch and parse every news feed
 ```
 
 ## Code layout
@@ -26,6 +27,7 @@ The code lives in `src/koreader_d00901/`:
 - `cli.py` / `tui.py`: the terminal and full-screen front ends.
 - `battery.py`: the USBNetwork battery reader.
 - `pins.py`: the upstream pin check used by the weekly workflow.
+- `feeds.py` / `feeds.toml`: the news feed list and its rendering into KOReader's `feed_config.lua`.
 - `errors.py`: `InstallerError` and its subclasses, which are reported to the user as one line.
 - `logs.py`: logging setup (a debug log file on every run).
 
@@ -40,7 +42,8 @@ and every pin is listed.
 - `.github/workflows/pins.yml` runs weekly (also from the Actions tab, and on PRs that touch the
   pins). It re-downloads every package in `packages.json`, verifies its sha256, and confirms it
   still holds every file the installer stages for each serial prefix and firmware range. If
-  upstream drifts, it opens an issue, or comments on the open one.
+  upstream drifts, it opens an issue, or comments on the open one. The same workflow fetches every
+  feed in `feeds.toml` marked `check = true` and fails if one no longer parses as RSS/Atom.
 - Dependabot opens weekly grouped updates for GitHub Actions and uv. Read the release notes of a
   major bump before merging. `make version-check` is skipped for Dependabot PRs, because they
   cannot bump the version. Their updates ship with the next bumped release.

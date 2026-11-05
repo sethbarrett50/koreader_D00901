@@ -42,6 +42,7 @@ smoke: ## Install the built wheel in a clean env and run both commands
 	$(UV) run --isolated --no-project --with dist/*.whl koreader-d00901-tui --version
 	$(UV) run --isolated --no-project --with dist/*.whl koreader-d00901-battery --version
 	$(UV) run --isolated --no-project --with dist/*.whl python -c "from koreader_d00901.packages import load_manifest; assert len(load_manifest()) == 6"
+	$(UV) run --isolated --no-project --with dist/*.whl python -m koreader_d00901.feeds --lua > /dev/null
 
 version-check: ## Fail if src/ or dependencies changed since the last vX.Y.Z tag without a version bump
 	@last="$$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null)"; \

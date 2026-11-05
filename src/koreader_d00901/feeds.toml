@@ -1,0 +1,172 @@
+# Feed list for KOReader's News Downloader, installed on every unit as koreader/news/feed_config.lua.
+# Edit here, not on the Kindles, then run `koreader-d00901 --only feeds` per unit.
+#
+# Fields: name, section (security | engineering | research), url,
+#   limit      max items per sync (0 = no limit)
+#   max_age    skip items older than this, e.g. "7d", "2w" (the feed must carry dates)
+#   full_article  fetch the whole web page instead of the feed text (slower on a K3)
+#   enabled    false = written to the Kindle commented out, ready to switch on
+#   check      false = skip in the weekly CI check (for sites that block automated clients)
+#
+# Verified 2026-11-05: every URL below returned 200 and parsed as RSS/Atom with dated items,
+# except CISA, which returns 403 to non-browser clients (see its note).
+
+# Security: act on these. Small limits, recent items only.
+
+[[feed]]
+name = "CISA cybersecurity alerts"
+section = "security"
+url = "https://www.cisa.gov/cybersecurity-advisories/alerts.xml"
+limit = 5
+max_age = "7d"
+check = false
+note = "Returned 403 to automated clients during verification; if the Kindle gets the same, set enabled = false."
+
+[[feed]]
+name = "Debian security advisories (full text)"
+section = "security"
+url = "https://www.debian.org/security/dsa-long"
+limit = 10
+max_age = "7d"
+
+[[feed]]
+name = "SANS Internet Storm Center"
+section = "security"
+url = "https://isc.sans.edu/rssfeed_full.xml"
+limit = 5
+max_age = "7d"
+
+# Engineering: releases and articles for the stack (Python, FastAPI, PostgreSQL, uv, Linux, networking).
+
+[[feed]]
+name = "Python Insider"
+section = "engineering"
+url = "https://blog.python.org/rss.xml"
+limit = 3
+max_age = "30d"
+
+[[feed]]
+name = "FastAPI releases"
+section = "engineering"
+url = "https://github.com/fastapi/fastapi/releases.atom"
+limit = 3
+max_age = "30d"
+
+[[feed]]
+name = "PostgreSQL news"
+section = "engineering"
+url = "https://www.postgresql.org/news.rss"
+limit = 3
+max_age = "30d"
+
+[[feed]]
+name = "uv releases"
+section = "engineering"
+url = "https://github.com/astral-sh/uv/releases.atom"
+limit = 3
+max_age = "14d"
+
+[[feed]]
+name = "Cloudflare blog"
+section = "engineering"
+url = "https://blog.cloudflare.com/rss/"
+limit = 3
+max_age = "14d"
+
+[[feed]]
+name = "Julia Evans"
+section = "engineering"
+url = "https://jvns.ca/atom.xml"
+limit = 3
+max_age = "30d"
+
+# Research: a few papers a week, screened by title and abstract.
+
+[[feed]]
+name = "arXiv cs.LG: concept drift and intrusion detection"
+section = "research"
+url = "https://export.arxiv.org/api/query?search_query=cat:cs.LG+AND+(abs:%22concept+drift%22+OR+abs:%22intrusion+detection%22)&sortBy=submittedDate&sortOrder=descending&max_results=15"
+limit = 5
+max_age = "14d"
+note = "Targeted query instead of all of cs.LG (about 445 papers and 936 KB per day)."
+
+[[feed]]
+name = "arXiv cs.CR (security)"
+section = "research"
+url = "https://rss.arxiv.org/rss/cs.CR"
+limit = 5
+max_age = "3d"
+
+[[feed]]
+name = "JMLR"
+section = "research"
+url = "https://www.jmlr.org/jmlr.xml"
+limit = 3
+max_age = "30d"
+
+[[feed]]
+name = "Google Research blog"
+section = "research"
+url = "https://research.google/blog/rss/"
+limit = 3
+max_age = "30d"
+
+# Off by default: switch one on when a project gives you a reason to follow it.
+
+[[feed]]
+name = "arXiv cs.LG (all)"
+section = "research"
+url = "https://rss.arxiv.org/rss/cs.LG"
+limit = 5
+max_age = "2d"
+enabled = false
+note = "About 445 papers a day; heavy for a K3 to parse."
+
+[[feed]]
+name = "Starlette releases"
+section = "engineering"
+url = "https://github.com/encode/starlette/releases.atom"
+limit = 3
+max_age = "30d"
+enabled = false
+
+[[feed]]
+name = "Pydantic releases"
+section = "engineering"
+url = "https://github.com/pydantic/pydantic/releases.atom"
+limit = 3
+max_age = "30d"
+enabled = false
+
+[[feed]]
+name = "SQLAlchemy releases"
+section = "engineering"
+url = "https://github.com/sqlalchemy/sqlalchemy/releases.atom"
+limit = 3
+max_age = "30d"
+enabled = false
+
+[[feed]]
+name = "Docker blog"
+section = "engineering"
+url = "https://www.docker.com/blog/feed/"
+limit = 3
+max_age = "14d"
+enabled = false
+
+[[feed]]
+name = "Proxmox announcements"
+section = "engineering"
+url = "https://forum.proxmox.com/forums/announcements.7/index.rss"
+limit = 3
+max_age = "30d"
+enabled = false
+
+[[feed]]
+name = "OpenWrt forum (latest)"
+section = "engineering"
+url = "https://forum.openwrt.org/latest.rss"
+limit = 5
+max_age = "3d"
+enabled = false
+note = "Every new forum post; noisy."

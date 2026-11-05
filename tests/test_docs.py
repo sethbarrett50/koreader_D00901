@@ -95,7 +95,14 @@ def test_readme_links_are_absolute_and_cover_every_page():
     links = re.findall(r'\]\(([^)]+)\)', README)
     assert links
     assert all(link.startswith('https://') for link in links), links
-    for page in ('docs/install.md', 'docs/usbnetwork.md', 'docs/battery.md', 'docs/development.md', 'CHANGELOG.md'):
+    for page in (
+        'docs/install.md',
+        'docs/usbnetwork.md',
+        'docs/battery.md',
+        'docs/development.md',
+        'docs/rss.md',
+        'CHANGELOG.md',
+    ):
         assert any(link.endswith(page) for link in links), f'README does not link {page}'
         assert (ROOT / page).is_file(), page
 

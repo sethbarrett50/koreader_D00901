@@ -1,6 +1,11 @@
 """Which files a given K3 needs: serial prefix and firmware range to package members."""
 
+from typing import TYPE_CHECKING
+
 from koreader_d00901.errors import ConfigError
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 VARIANTS = {'B006': 'k3g', 'B008': 'k3w', 'B00A': 'k3gb'}
 FIRMWARE_RANGES = ('3.0-3.2', '3.3-3.4')
@@ -55,3 +60,27 @@ def update_steps(files: dict[str, str | None]) -> list[tuple[str, str]]:
 def package_keys(files: dict[str, str | None]) -> list[str]:
     """Every manifest package this install needs, in install order."""
     return [key for key, _ in update_steps(files)] + ['kual', 'koreader']
+
+
+# Every step either front end can run, in order, with a short label. USBNetwork is the only one
+# that is off unless asked for.
+STEP_LABELS = {
+    'jailbreak': 'Jailbreak',
+    'mkk': 'MKK certificates',
+    'keystore': '2025 keystore',
+    'usbnet': 'USBNetwork (SSH)',
+    'kual': 'KUAL',
+    'koreader': 'KOReader',
+    'feeds': 'News feed list',
+}
+ALL_STEPS = tuple(STEP_LABELS)
+
+
+def selected_steps(only: Iterable[str] | None = None, usbnet: bool = False) -> frozenset[str]:
+    """The steps to run: exactly `only` when given (--only), else everything but USBNetwork unless asked."""
+    if only:
+        unknown = set(only) - set(ALL_STEPS)
+        if unknown:
+            raise ConfigError(f'unknown step(s): {", ".join(sorted(unknown))}')
+        return frozenset(only) | ({'usbnet'} if usbnet else set())
+    return frozenset(step for step in ALL_STEPS if step != 'usbnet' or usbnet)
