@@ -1,4 +1,4 @@
-"""Install KOReader on a Kindle Keyboard (K3) from Linux."""
+"""Install KOReader on a Kindle Keyboard (K3) from Linux, macOS or Windows."""
 
 from importlib.metadata import PackageNotFoundError, version
 

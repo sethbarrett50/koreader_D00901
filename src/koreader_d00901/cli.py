@@ -194,11 +194,11 @@ def run(args: argparse.Namespace) -> int:
 
     if feed_list is not None:
         target = feeds.install_feeds(mount, feed_list)
-        print(f'Wrote {sum(f.enabled for f in feed_list)} news feeds to {target.relative_to(mount)}')
+        print(f'Wrote {sum(f.enabled for f in feed_list)} news feeds to {target.relative_to(mount).as_posix()}')
 
     if dash_url:
         target = dashboard.install_extension(mount, dash_url, args.dashboard_interval)
-        print(f'Installed the status display in {target.relative_to(mount)}/ (KUAL > K3 status dashboard)')
+        print(f'Installed the status display in {target.relative_to(mount).as_posix()}/ (KUAL > K3 status dashboard)')
 
     print('Flushing writes to the Kindle...', flush=True)
     device.flush()

@@ -1,0 +1,3 @@
+# LF everywhere, also in a Windows checkout: the Kindle's shell sources files bundled from src/,
+# and a wheel built on Windows must not ship them with CRLF line endings.
+* text=auto eol=lf

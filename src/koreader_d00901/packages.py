@@ -25,7 +25,7 @@ Manifest = dict[str, dict[str, str]]
 
 def load_manifest() -> Manifest:
     """The pinned packages (url, sha256, filename) shipped with this package."""
-    return json.loads(files('koreader_d00901').joinpath('packages.json').read_text())
+    return json.loads(files('koreader_d00901').joinpath('packages.json').read_text(encoding='utf-8'))
 
 
 def _sha256_of(path: Path) -> str:

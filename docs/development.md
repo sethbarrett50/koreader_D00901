@@ -43,7 +43,9 @@ and every pin is listed.
 ## CI
 
 - `.github/workflows/ci.yml` runs `make ci`, `make build`, `make smoke` and `make version-check`
-  on Python 3.14 for every push and PR.
+  on Python 3.14 for every push and PR, and the tests again on macOS and Windows. Tests that run
+  the Kindle's shell script need `sh` and are skipped on Windows. `tests/test_device.py` simulates
+  each operating system, so the Linux run also covers the macOS and Windows code paths.
 - `.github/workflows/pins.yml` runs weekly (also from the Actions tab, and on PRs that touch the
   pins). It re-downloads every package in `packages.json`, verifies its sha256, and confirms it
   still holds every file the installer stages for each serial prefix and firmware range. If

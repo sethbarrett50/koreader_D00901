@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 from datetime import UTC, datetime, timedelta
@@ -52,7 +53,7 @@ def test_log_and_drain(tmp_path):
     assert before == (T0, 87)
     assert battery.drain(before, later) == '-12% over 24.0 h since 2026-11-05 12:00 UTC (0.50%/h, about 12% per day)'
     battery.append(log, later)
-    text = log.read_text()
+    text = log.read_text(encoding='utf-8')
     assert text.startswith('time,serial,capacity,charging,source,note,raw')
     assert 'start' in text
     assert 'sys.battery_voltage=4012' in text
@@ -74,7 +75,9 @@ def test_main_reports_ssh_failure(tmp_path, monkeypatch, capsys):
     def fake_run(argv, **kwargs):
         assert argv[0] == 'ssh'
         assert 'root@192.168.2.2' in argv
-        return subprocess.CompletedProcess(argv, 255, '', 'ssh: connect to host 192.168.2.2: No route to host')
+        assert isinstance(kwargs['input'], bytes), 'text mode would send CRLF to the Kindle on Windows'
+        assert b'\r' not in kwargs['input']
+        return subprocess.CompletedProcess(argv, 255, b'', b'ssh: connect to host 192.168.2.2: No route to host')
 
     monkeypatch.setattr(battery.subprocess, 'run', fake_run)
     monkeypatch.setattr(battery, 'setup_logging', lambda *a, **k: None)
@@ -83,3 +86,26 @@ def test_main_reports_ssh_failure(tmp_path, monkeypatch, capsys):
     assert 'No route to host' in err
     assert 'USBNetwork' in err
     assert not (tmp_path / 'b.csv').exists()
+
+
+def test_ssh_runner_sends_lf_bytes_and_decodes_output(monkeypatch):
+    seen = {}
+
+    def fake_run(argv, **kwargs):
+        seen.update(kwargs, argv=argv)
+        return subprocess.CompletedProcess(argv, 0, b'capacity=87\n', b'')
+
+    monkeypatch.setattr(battery.subprocess, 'run', fake_run)
+    assert battery.ssh_runner('192.168.2.2')('echo a\necho b\n') == 'capacity=87\n'
+    assert seen['input'] == b'echo a\necho b\n'
+    assert 'text' not in seen
+    assert f'UserKnownHostsFile={os.devnull}' in seen['argv']
+
+
+def test_missing_ssh_says_so(monkeypatch):
+    def fake_run(argv, **kwargs):
+        raise FileNotFoundError(2, 'No such file or directory', 'ssh')
+
+    monkeypatch.setattr(battery.subprocess, 'run', fake_run)
+    with pytest.raises(DeviceError, match='OpenSSH'):
+        battery.ssh_runner('192.168.2.2')('true')

@@ -12,6 +12,7 @@ from rich.text import Text
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
@@ -256,7 +257,10 @@ class InstallerApp(App[None]):
         self.set_debug(event.value)
 
     def drain_log(self) -> None:
-        panel = self.query_one('#log', RichLog)
+        try:
+            panel = self.query_one('#log', RichLog)
+        except NoMatches:  # the interval timer can fire once more while the app shuts down
+            return
         while True:
             try:
                 line = self.panel_handler.records.get_nowait()

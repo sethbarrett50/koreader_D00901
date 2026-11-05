@@ -1,7 +1,7 @@
 # koreader_D00901
 
 Install [KOReader](https://github.com/koreader/koreader) on the Amazon Kindle Keyboard (K3, model
-D00901) from Linux, repeatably, across any number of units.
+D00901) from Linux, macOS or Windows, repeatably, across any number of units.
 
 **Use this at your own risk:** it modifies your Kindle's firmware, and I am not responsible for a
 unit that stops working.

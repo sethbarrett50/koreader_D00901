@@ -8,8 +8,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / 'docs'
-README = (ROOT / 'README.md').read_text()
-INSTALL = (DOCS / 'install.md').read_text()
+README = (ROOT / 'README.md').read_text(encoding='utf-8')
+INSTALL = (DOCS / 'install.md').read_text(encoding='utf-8')
 
 
 def section(text: str, title: str) -> str:
@@ -64,7 +64,7 @@ def test_install_section_has_required_text(title):
 
 
 def test_usbnetwork_page():
-    text = (DOCS / 'usbnetwork.md').read_text()
+    text = (DOCS / 'usbnetwork.md').read_text(encoding='utf-8')
     for needle in (
         ';debugOn',
         '~usbNetwork',
@@ -109,7 +109,7 @@ def test_readme_links_are_absolute_and_cover_every_page():
 
 
 def test_screenshot_exists():
-    svg = (DOCS / 'tui.svg').read_text()
+    svg = (DOCS / 'tui.svg').read_text(encoding='utf-8')
     assert svg.lstrip().startswith('<svg')
     assert '/tmp' not in svg
 
@@ -117,16 +117,16 @@ def test_screenshot_exists():
 def test_every_flag_documented():
     flags = set()
     for module in ('cli.py', 'battery.py'):
-        source = (ROOT / 'src' / 'koreader_d00901' / module).read_text()
+        source = (ROOT / 'src' / 'koreader_d00901' / module).read_text(encoding='utf-8')
         flags |= set(re.findall(r'add_argument\(\s*(?:[\'"]-\w[\'"],\s*)?[\'"](--[a-z-]+)[\'"]', source))
     assert {'--only', '--wipe-books', '--raw', '--note', '--verbose'} <= flags
-    docs = INSTALL + (DOCS / 'battery.md').read_text() + README
+    docs = INSTALL + (DOCS / 'battery.md').read_text(encoding='utf-8') + README
     for flag in flags - {'--host', '--user', '--log'}:
         assert flag in docs, f'flag {flag} not documented'
 
 
 def test_pins_listed():
-    manifest = json.loads((ROOT / 'src' / 'koreader_d00901' / 'packages.json').read_text())
+    manifest = json.loads((ROOT / 'src' / 'koreader_d00901' / 'packages.json').read_text(encoding='utf-8'))
     body = section(INSTALL, 'Pinned packages')
     for name, pkg in manifest.items():
         assert pkg['filename'] in body, f'{name} filename missing'
@@ -134,14 +134,14 @@ def test_pins_listed():
 
 
 def test_changelog_has_current_version():
-    version = tomllib.loads((ROOT / 'pyproject.toml').read_text())['project']['version']
-    changelog = (ROOT / 'CHANGELOG.md').read_text()
+    version = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
+    changelog = (ROOT / 'CHANGELOG.md').read_text(encoding='utf-8')
     assert f'## [{version}]' in changelog
     assert f'[{version}]: https://github.com/sethbarrett50/koreader_D00901/' in changelog
 
 
 def test_release_steps_documented():
-    text = (DOCS / 'development.md').read_text()
+    text = (DOCS / 'development.md').read_text(encoding='utf-8')
     for needle in (
         '## Releasing',
         'release.yml',
