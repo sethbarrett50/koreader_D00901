@@ -31,7 +31,7 @@ REQUIRED = {
     'On the Kindle': [
         'Eject and unplug',
         '[HOME] > [MENU] > Settings > [MENU] > Update Your Kindle',
-        'jailbreak, then MKK',
+        'jailbreak, then MKK, then the 2025 keystore',
         'open KUAL from the library',
         'KOReader',
     ],
@@ -40,6 +40,7 @@ REQUIRED = {
         'Never force',
         'about 15 seconds',
         'Reinstall MKK',
+        'not signed by a registered developer',
     ],
     'USBNetwork (optional)': [
         ';debugOn',

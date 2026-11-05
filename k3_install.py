@@ -38,6 +38,7 @@ def select_files(fw: str, prefix: str, usbnet: bool) -> dict[str, str | None]:
     return {
         'jailbreak': f'Jailbreak/Update_jailbreak_0.13.N_{variant}{suffix}_install.bin',
         'mkk': f'DevCerts/Update_mkk-20141129-{variant}-{prefix}_install.bin',
+        'keystore': f'Update-mkk-20250419-{variant}-{prefix}_keystore-install.bin',
         'usbnet': f'Update_usbnetwork_0.57.N_{variant}_install.bin' if usbnet else None,
         'kual': 'KUAL-KDK-1.0.azw2',
     }
@@ -135,8 +136,11 @@ def extract(archive: Path, dest: Path) -> Path:
 UPDATE_STEPS = (
     ('jailbreak', 'jailbreak'),
     ('mkk', 'MKK (developer certificates)'),
+    ('keystore', '2025 developer keystore (needed to launch KUAL)'),
     ('usbnet', 'USBNetwork'),
 )
+# K3 update packages are named Update_*.bin or Update-*.bin (the 2025 keystore uses a hyphen).
+UPDATE_GLOB = 'Update[-_]*.bin'
 DEVICE_STEPS = (
     '  First safely eject (unmount) the Kindle and unplug it from the computer;\n'
     '  the update cannot run while it is in USB drive mode.\n'
@@ -204,7 +208,7 @@ def _copy_with_progress(pairs: list[tuple[Path, Path]], label: str) -> None:
 
 
 def _update_step(mount: Path, bin_path: Path, label: str) -> None:
-    for old in mount.glob('Update_*.bin'):
+    for old in mount.glob(UPDATE_GLOB):
         old.unlink()
     shutil.copy2(bin_path, mount / bin_path.name)
     os.sync()
