@@ -1,0 +1,27 @@
+{
+  "jailbreak": {
+    "url": "https://storage.gra.cloud.ovh.net/v1/AUTH_2ac4bfee353948ec8ea7fd1710574097/mr-public/Legacy/kindle-jailbreak-0.13.N-r18833.tar.xz",
+    "sha256": "8f5c8a78e3c4574232acf4783da1c66959078a4e10116c30cd40b16fb98e3ac3",
+    "filename": "kindle-jailbreak-0.13.N-r18833.tar.xz"
+  },
+  "mkk": {
+    "url": "https://storage.gra.cloud.ovh.net/v1/AUTH_2ac4bfee353948ec8ea7fd1710574097/mr-public/Touch/kindle-mkk-20141129-r18833.tar.xz",
+    "sha256": "3d7289f1ddcf18cebb67053cd33ac5ecd7b4a8116bd11d3c75dd6f220a7d8d9d",
+    "filename": "kindle-mkk-20141129-r18833.tar.xz"
+  },
+  "kual": {
+    "url": "https://storage.gra.cloud.ovh.net/v1/AUTH_2ac4bfee353948ec8ea7fd1710574097/mr-public/KUAL/KUAL-v2.7.37-gfcb45b5-20250419.tar.xz",
+    "sha256": "40c4b68712213adc7b667b9502cdd0c8099761fce1e1bf2b161b84102af54135",
+    "filename": "KUAL-v2.7.37-gfcb45b5-20250419.tar.xz"
+  },
+  "usbnet": {
+    "url": "https://www.mobileread.com/forums/attachment.php?attachmentid=141340&d=1440341473",
+    "sha256": "7d210bc416193bf1ee0c45a59a133d78ac9b0b257dc3d1533ecd9e4ab17649f6",
+    "filename": "kindle-usbnetwork-0.57.N-k3.zip"
+  },
+  "koreader": {
+    "url": "https://github.com/koreader/koreader/releases/download/v2026.07.1/koreader-kindle-legacy-v2026.07.1.zip",
+    "sha256": "0ed8d5eec422dad4894ddc426894c260cce55ec3ee3c0be9e8a4fe46c45a5cde",
+    "filename": "koreader-kindle-legacy-v2026.07.1.zip"
+  }
+}
