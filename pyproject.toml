@@ -31,7 +31,7 @@ koreader-d00901 = "koreader_d00901.cli:main"
 koreader-d00901-tui = "koreader_d00901.tui:main"
 
 [build-system]
-requires = ["uv_build>=0.9,<0.12"]
+requires = ["uv_build>=0.9,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
