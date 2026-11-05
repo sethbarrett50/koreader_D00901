@@ -82,13 +82,22 @@ class PanelHandler(logging.Handler):
 class ConfirmWipe(ModalScreen[bool]):
     """Show exactly what --wipe-books would delete and ask before anything is removed."""
 
+    # The title and the choices are docked, so they stay visible however long the list is and
+    # however small the terminal: only the list in between shrinks and scrolls (#26).
     CSS = """
     ConfirmWipe { align: center middle; }
-    #dialog { width: 70; height: auto; max-height: 80%; border: thick $error; padding: 1 2; background: $surface; }
-    #entries { height: auto; max-height: 20; }
-    #choices { height: auto; margin-top: 1; }
+    #dialog {
+        width: 90%; max-width: 80; height: auto; max-height: 90%;
+        border: thick $error; padding: 0 1; background: $surface;
+    }
+    #wipe-title { dock: top; width: 100%; padding-bottom: 1; }
+    #wipe-footer { dock: bottom; height: auto; padding-top: 1; }
+    #wipe-help { width: 100%; color: $text-muted; }
+    #choices { height: auto; padding-top: 1; }
     #choices Button { margin-right: 2; }
+    #entries { height: auto; border: round $panel; }
     """
+    BINDINGS = [('escape', 'keep', 'Keep my books')]
 
     def __init__(self, entries: list[Path]) -> None:
         super().__init__()
@@ -96,12 +105,28 @@ class ConfirmWipe(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id='dialog'):
-            yield Label(f'[b]Delete {len(self.entries)} entries from documents/?[/] KUAL and dictionaries are kept.')
+            yield Label(
+                f'[b]Delete these {len(self.entries)} entries from documents/?[/]\n'
+                'KUAL and dictionaries are kept. Nothing else on the Kindle is touched.',
+                id='wipe-title',
+            )
+            with Vertical(id='wipe-footer'):
+                yield Static(
+                    '[b]Delete them[/]: delete the list above, then start the install.\n'
+                    '[b]Keep my books[/] (or Esc): delete nothing and go back. Untick the delete option\n'
+                    'and press Install to install without deleting.\n'
+                    'Scroll the list with the mouse or arrow keys; Tab moves between buttons, Enter presses.',
+                    id='wipe-help',
+                )
+                with Horizontal(id='choices'):
+                    yield Button('Keep my books', variant='primary', id='wipe-no')
+                    yield Button('Delete them', variant='error', id='wipe-yes')
             with VerticalScroll(id='entries'):
-                yield Static('\n'.join(describe(self.entries, limit=200)))
-            with Horizontal(id='choices'):
-                yield Button('Delete them', variant='error', id='wipe-yes')
-                yield Button('Keep my books', variant='primary', id='wipe-no')
+                yield Static('\n'.join(describe(self.entries, limit=500)))
+
+    def on_mount(self) -> None:
+        # The safe choice has focus, so a stray Enter keeps the books.
+        self.query_one('#wipe-no', Button).focus()
 
     @on(Button.Pressed, '#wipe-yes')
     def yes(self) -> None:
@@ -109,6 +134,9 @@ class ConfirmWipe(ModalScreen[bool]):
 
     @on(Button.Pressed, '#wipe-no')
     def no(self) -> None:
+        self.dismiss(False)
+
+    def action_keep(self) -> None:
         self.dismiss(False)
 
 

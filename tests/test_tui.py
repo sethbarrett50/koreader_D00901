@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from conftest import FILES, FW, PREFIX
 from textual.widgets import Button, Checkbox, Input, RichLog, SelectionList
 
@@ -213,3 +215,42 @@ def test_tui_dashboard_step_needs_a_url(kindle):
     _, log_text = asyncio.run(_drive(app, kindle.mount, limit=5, setup=tick_dashboard))
     assert app.state == 'setup'
     assert 'status display:' in log_text
+
+
+async def _open_wipe_dialog(app: InstallerApp, size: tuple[int, int]):
+    """Open the delete-books dialog at a terminal size and return the pilot-run results."""
+    async with app.run_test(size=size) as pilot:
+        app.query_one('#install', Button).press()
+        for _ in range(250):
+            await pilot.pause(0.02)
+            if app.screen.query('#wipe-no'):
+                break
+        await pilot.pause(0.1)
+        screen = app.screen
+        dialog = screen.query_one('#dialog').region
+        regions = {name: screen.query_one(name).region for name in ('#wipe-yes', '#wipe-no', '#wipe-help')}
+        focused = app.focused.id if app.focused else None
+        await pilot.press('escape')
+        await pilot.pause(0.1)
+        return dialog, regions, focused, app.screen is not screen, _log_text(app)
+
+
+@pytest.mark.parametrize('size', [(80, 24), (60, 20), (140, 50)])
+def test_tui_wipe_dialog_buttons_stay_on_screen_with_many_books(kindle, size):
+    # Regression for #26: with a long list the buttons ended up below the dialog, out of sight.
+    for i in range(60):
+        (kindle.mount / 'documents' / f'Previous Owner Book Title {i:03d} - Some Author.azw').write_text('x')
+    app = _app(kindle, wipe=True)
+    dialog, regions, focused, closed, log_text = asyncio.run(_open_wipe_dialog(app, size))
+    cols, rows = size
+    assert dialog.right <= cols
+    assert dialog.bottom <= rows
+    for name in ('#wipe-yes', '#wipe-no'):
+        button = regions[name]
+        assert button.height == 3, name
+        assert dialog.contains_region(button), f'{name} {button} is outside the dialog {dialog}'
+        assert not button.overlaps(regions['#wipe-help']), name
+    assert focused == 'wipe-no', 'the safe choice should have focus'
+    assert closed, 'Esc should close the dialog'
+    assert 'Kept your books' in log_text
+    assert (kindle.mount / 'documents' / 'Previous Owner Book Title 000 - Some Author.azw').is_file()

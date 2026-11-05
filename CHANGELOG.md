@@ -4,6 +4,15 @@ All notable changes to `koreader_D00901`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-11-05
+
+### Fixed
+
+- TUI: with many books on the Kindle, the delete-books dialog ran off the screen and hid its
+  **Delete them** / **Keep my books** buttons (#26). The buttons and a short explanation of each
+  choice now always stay visible, and the list scrolls between them. The dialog fits narrow
+  terminals, **Keep my books** has focus, and Esc keeps the books.
+
 ## [0.4.0] - 2026-11-05
 
 ### Added
@@ -69,6 +78,7 @@ First release on PyPI.
 - KUAL failed with "not signed by a registered developer" because MKK's 2014 certificates expired
   in April 2025. The installer now applies NiLuJe's 2025 keystore update after MKK.
 
+[0.4.1]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.2.0...v0.2.1
