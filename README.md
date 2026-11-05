@@ -141,7 +141,10 @@ make test       # pytest
 make ci         # everything CI runs, without fixes
 make build      # sdist + wheel into dist/
 make smoke      # install the wheel in a clean env and run both commands
+uv run python -m koreader_d00901.pins   # re-download every pin and check it (about 100 MB)
 ```
+
+CI (`.github/workflows/ci.yml`) runs `make ci`, `make build` and `make smoke` on Python 3.12 and 3.13 for every push and PR. A weekly pin check (`.github/workflows/pins.yml`, also runnable from the Actions tab) re-downloads every package in `packages.json`, verifies its sha256, and confirms that it still holds every file the installer stages for each serial prefix and firmware range. If upstream drifts, it opens an issue (or comments on the open one).
 
 ### Releasing
 
@@ -159,3 +162,4 @@ The code lives in `src/koreader_d00901/`:
 - `cli.py` / `tui.py`: the two front ends.
 - `errors.py`: `InstallerError` and its subclasses, which are reported to the user as one line.
 - `logs.py`: logging setup (a debug log file on every run).
+- `pins.py`: the upstream pin check used by the weekly workflow.
