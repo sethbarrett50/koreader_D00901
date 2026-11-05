@@ -109,3 +109,13 @@ Before ejecting, bring the interface down with `sudo ip link set usb0 down`, and
 - KUAL: https://www.mobileread.com/forums/showthread.php?t=203326
 - USBNetwork: https://www.mobileread.com/forums/showthread.php?t=88004
 - KOReader: https://github.com/koreader/koreader
+
+## Development
+
+```
+make sync       # uv sync --dev (ruff, ty, pytest)
+make lint       # ruff format + ruff check --fix
+make typecheck  # ty check
+make test       # pytest
+make ci         # everything CI runs, without fixes
+```
