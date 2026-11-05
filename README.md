@@ -62,6 +62,7 @@ Flags (both commands take the same ones, except that `--dry-run` is CLI-only):
 - `--fw RANGE`: firmware range, `3.0-3.2` or `3.3-3.4`. Asked interactively if omitted.
 - `--prefix PREFIX`: serial prefix, `B006`, `B008` or `B00A`. Asked interactively if omitted.
 - `--usbnet`: also install USBNetwork.
+- `--wipe-books`: delete the existing books in `documents/` before installing, which is handy for second-hand units. It lists everything it will delete and asks you to type `wipe` (the TUI shows a confirmation dialog). It keeps `KUAL-KDK-1.0.azw2` and the `dictionaries` folder, and never touches anything outside `documents/`. With `--dry-run` it only lists what it would delete.
 - `--cache DIR`: where downloads are kept (default `~/.cache/k3-koreader`).
 - `--log-file FILE`: where the debug log goes (default `CACHE/install.log`).
 - `-v`, `--verbose`: also print debug logging on the terminal (CLI only).
