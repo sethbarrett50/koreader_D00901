@@ -136,7 +136,7 @@ class InstallerApp(App[None]):
                     prompt='Choose model',
                     value=prefix if prefix in MODELS else Select.NULL,
                 )
-                yield Checkbox('Also install USBNetwork (ssh over USB)', usbnet, id='usbnet')
+                yield Checkbox('Install USBNetwork (SSH)', usbnet, id='usbnet')
                 yield Checkbox('Delete existing books first (asks)', wipe, id='wipe')
                 yield Label('Kindle mount point')
                 yield Input(str(mount) if mount else '', placeholder='auto-detected when plugged in', id='mount')
@@ -150,7 +150,7 @@ class InstallerApp(App[None]):
                 with Horizontal(id='actions'):
                     yield Button('Continue', variant='success', id='continue', disabled=True)
                     yield Button('Eject Kindle', id='eject')
-                yield RichLog(id='log', markup=True, wrap=True)
+                yield RichLog(id='log', markup=True, wrap=True, min_width=20)
         yield Footer()
 
     def on_mount(self) -> None:

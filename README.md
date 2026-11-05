@@ -1,171 +1,50 @@
-# KOReader installer for the Kindle Keyboard (K3)
+# koreader_D00901
 
-Use this at your own risk: it modifies your Kindle's firmware and I am not responsible for a unit that stops working.
+Install [KOReader](https://github.com/koreader/koreader) on the Amazon Kindle Keyboard (K3, model
+D00901) from Linux, repeatably, across any number of units.
 
-## What this does
+**Use this at your own risk:** it modifies your Kindle's firmware, and I am not responsible for a
+unit that stops working.
 
-`koreader-d00901` (the `koreader_D00901` Python package) downloads pinned, checksum-verified packages and stages them on a Kindle Keyboard (K3) that is mounted as a USB drive. It chains:
+![The full-screen installer](https://raw.githubusercontent.com/sethbarrett50/koreader_D00901/main/docs/tui.svg)
 
-1. The jailbreak, which lets the Kindle install custom update packages.
-2. MKK (the developer certificates the Kindle needs to run custom Kindlets such as KUAL).
-   MKK's 2014 certificates expired in April 2025, so the installer then applies NiLuJe's 2025 developer keystore update, which adds the certificates current KUAL is signed with.
-3. KUAL (the Kindle Unified Application Launcher), copied into `documents/`.
-4. KOReader, merged into the Kindle's root.
-5. Optionally, USBNetwork (`--usbnet`), for ssh access over USB.
+## Quickstart
 
-## Before you start
-
-- Charge the Kindle fully.
-- Deregister it: Settings > Registration > Deregister.
-- Turn wireless off.
-- Find your firmware version at the bottom of the Settings page (for example 3.4.2).
-- Find your serial prefix: the first four characters of the serial number (B006, B008 or B00A), listed under Device Info or on the back of the unit.
-
-## Which files your Kindle needs
-
-The installer picks the right files from your serial prefix and firmware range.
-
-| Serial prefix | Variant |
-| ------------- | ------- |
-| B006          | k3g     |
-| B008          | k3w     |
-| B00A          | k3gb    |
-
-Firmware 3.0-3.2 uses the jailbreak file marked `-3.0-to-3.2`. Firmware 3.3-3.4 uses the plain jailbreak file. The installer asks for the range as `3.0-3.2` or `3.3-3.4`.
-
-## Running the installer
-
-Install from PyPI, then connect the Kindle in USB drive mode and start the full-screen installer:
+1. Charge the Kindle, deregister it, and turn wireless off.
+2. Note the firmware version (bottom of the Settings page) and the serial prefix (B006, B008 or B00A).
+3. Connect the Kindle in USB drive mode, then run:
 
 ```
 uv tool install koreader_D00901    # or: pipx install koreader_D00901
 koreader-d00901-tui
 ```
 
-To run it once without installing anything, use `uvx --from koreader_D00901 koreader-d00901-tui`. From a clone of this repo, use `uv run koreader-d00901-tui`.
+4. Pick the firmware and model, press **Install**, and follow the on-screen steps. At each update
+   it tells you to eject, apply Settings > Update Your Kindle on the device, and plug back in.
+5. When it's done, open **KUAL** from the Kindle's library and choose **KOReader > Start KOReader**.
 
-Pick the firmware range and serial prefix, press **Install**, and follow the on-screen steps. Between updates it shows what to do on the Kindle, has an **Eject Kindle** button, and waits for **Continue**. **Dry run** shows the plan without changing anything.
+## Features
 
-The same install also runs as a plain terminal script. Do a dry run first: it prints the plan and changes nothing.
+- Applies the whole chain in order: jailbreak, MKK developer certificates, the 2025 developer
+  keystore (without it, current KUAL fails with "not signed by a registered developer"), optional
+  USBNetwork, KUAL and KOReader.
+- Picks the right files for your serial prefix and firmware range.
+- Pins every upstream package by sha256, and never executes anything it downloads on your computer.
+- Two front ends: a full-screen TUI (`koreader-d00901-tui`) and a terminal script (`koreader-d00901`)
+  with a dry run, `--only STEP` and more.
+- Can delete the books already on a second-hand unit first, after showing you exactly what will go.
+- `koreader-d00901-battery` reads and logs each unit's battery over USBNetwork, to track health and drain.
 
-```
-uv run koreader-d00901 --dry-run
-```
+## Documentation
 
-Then run it for real:
-
-```
-uv run koreader-d00901
-```
-
-Flags (both commands take the same ones, except that `--dry-run` is CLI-only):
-
-- `--dry-run`: print the plan only.
-- `--mount PATH`: the Kindle's USB mount point. Without it the installer looks for a volume labelled Kindle.
-- `--fw RANGE`: firmware range, `3.0-3.2` or `3.3-3.4`. Asked interactively if omitted.
-- `--prefix PREFIX`: serial prefix, `B006`, `B008` or `B00A`. Asked interactively if omitted.
-- `--usbnet`: also install USBNetwork.
-- `--wipe-books`: delete the existing books in `documents/` before installing, which is handy for second-hand units. It lists everything it will delete and asks you to type `wipe` (the TUI shows a confirmation dialog). It keeps `KUAL-KDK-1.0.azw2` and the `dictionaries` folder, and never touches anything outside `documents/`. With `--dry-run` it only lists what it would delete.
-- `--cache DIR`: where downloads are kept (default `~/.cache/k3-koreader`).
-- `--only STEP` (CLI only, repeatable): run just these steps. STEP is `jailbreak`, `mkk`, `keystore`, `usbnet`, `kual` or `koreader`. For example, `--only usbnet` adds USBNetwork to a unit that is already set up.
-- `--log-file FILE`: where the debug log goes (default `CACHE/install.log`).
-- `-v`, `--verbose`: also print debug logging on the terminal (CLI only).
-- `--version`: print the version.
-
-Every run writes a debug log. If an install fails, check `~/.cache/k3-koreader/install.log` first.
-
-Each download is checked against the sha256 in `packages.json` and rejected if it does not match.
-
-## On the Kindle
-
-For each update the installer stages one `.bin` file and pauses. Then:
-
-1. Eject and unplug the Kindle (safely eject it first; the update cannot run in USB drive mode).
-2. Press [HOME] > [MENU] > Settings > [MENU] > Update Your Kindle.
-3. Wait for the reboot, reconnect in USB drive mode and press Enter in the installer.
-
-The order is jailbreak, then MKK, then the 2025 keystore (then USBNetwork if requested). After the last step, eject the Kindle, open KUAL from the library and choose KOReader.
-
-## If something goes wrong
-
-- Update Your Kindle is greyed out: the wrong file was staged. Check your serial prefix and firmware range and run the installer again.
-- Never force an update by rebooting the Kindle by hand.
-- If the Kindle hangs, hold the power button for about 15 seconds for a hard reboot.
-- Deregistering or an over-the-air (OTA) update can remove the developer certificates. Reinstall MKK when that happens.
-- KUAL says the title is "not signed by a registered developer": the 2025 keystore update did not apply. Copy `Update-mkk-20250419-<variant>-<prefix>_keystore-install.bin` from `DevCerts-20250419-KeyStore.zip` to the Kindle root and run Update Your Kindle again.
-
-## USBNetwork (optional)
-
-After installing with `--usbnet`, enable it from the Kindle's search bar:
-
-1. Type `;debugOn` and press Enter.
-2. Type `~usbNetwork` and press Enter.
-3. Type `;debugOff` and press Enter.
-
-Then connect over USB. On Debian the Kindle appears as a USB network interface, often `usb0` (check with `ip link`). Assign the computer side its address:
-
-```
-sudo ip addr add 192.168.2.1/24 dev usb0
-sudo ip link set usb0 up
-```
-
-(The older equivalent is `sudo ifconfig usb0 192.168.2.1`.) Then use `ssh root@192.168.2.2`. Login is passwordless only over USB with Wi-Fi mode off.
-
-Before ejecting, bring the interface down with `sudo ip link set usb0 down`, and enter `~usbNetwork` again on the Kindle to switch back to USB drive mode.
-
-## Battery
-
-`koreader-d00901-battery` reads a unit's battery over USBNetwork (`ssh root@192.168.2.2`) and logs it per serial number in `~/.cache/k3-koreader/battery.csv`. Run it again later to see the drain since the previous reading. `--raw` prints every field the Kindle reports, and `--note TEXT` labels the reading. The procedure and the per-unit results are in [docs/battery.md](docs/battery.md).
-
-## Pinned packages
-
-| Package    | File                                     | sha256 (first 12) |
-| ---------- | ---------------------------------------- | ----------------- |
-| jailbreak  | kindle-jailbreak-0.13.N-r18833.tar.xz    | 8f5c8a78e3c4      |
-| mkk        | kindle-mkk-20141129-r18833.tar.xz        | 3d7289f1ddcf      |
-| keystore   | DevCerts-20250419-KeyStore.zip           | 48426add32e3      |
-| kual       | KUAL-v2.7.37-gfcb45b5-20250419.tar.xz    | 40c4b6871221      |
-| usbnet     | kindle-usbnetwork-0.57.N-k3.zip          | 7d210bc41619      |
-| koreader   | koreader-kindle-legacy-v2026.07.1.zip    | 0ed8d5eec422      |
+- [Installing](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/install.md): preparation, every flag, the on-device steps, troubleshooting, pinned packages, credits
+- [USBNetwork](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/usbnetwork.md): SSH into a K3 over USB
+- [Battery](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/battery.md): health and drain measurements per unit
+- [Development](https://github.com/sethbarrett50/koreader_D00901/blob/main/docs/development.md): make targets, code layout, CI, releasing
+- [Changelog](https://github.com/sethbarrett50/koreader_D00901/blob/main/CHANGELOG.md)
 
 ## Credits
 
-- Jailbreak: https://www.mobileread.com/forums/showthread.php?t=225030
-- 2025 developer keystore (NiLuJe, 2025-04-19): https://www.mobileread.com/forums/attachment.php?attachmentid=215127&d=1745098511
-- KUAL: https://www.mobileread.com/forums/showthread.php?t=203326
-- USBNetwork: https://www.mobileread.com/forums/showthread.php?t=88004
-- KOReader: https://github.com/koreader/koreader
-
-## Development
-
-```
-make sync       # uv sync --dev (ruff, ty, pytest)
-make lint       # ruff format + ruff check --fix
-make typecheck  # ty check
-make test       # pytest
-make ci         # everything CI runs, without fixes
-make build      # sdist + wheel into dist/
-make smoke      # install the wheel in a clean env and run both commands
-make version-check  # package changed since the last tag? then the version must be bumped
-uv run python -m koreader_d00901.pins   # re-download every pin and check it (about 100 MB)
-```
-
-CI (`.github/workflows/ci.yml`) runs `make ci`, `make build` and `make smoke` on Python 3.14 for every push and PR. A weekly pin check (`.github/workflows/pins.yml`, also runnable from the Actions tab) re-downloads every package in `packages.json`, verifies its sha256, and confirms that it still holds every file the installer stages for each serial prefix and firmware range. If upstream drifts, it opens an issue (or comments on the open one).
-
-### Releasing
-
-1. Bump `version` in `pyproject.toml` (`uv version --bump patch`, `minor` or `major`), then merge to `main`. CI's `make version-check` fails any PR that changes `src/`, the dependencies or `uv.lock` since the last `vX.Y.Z` tag without raising the version, so every release gets a new version on PyPI.
-2. Tag the merge commit `vX.Y.Z` (matching that version) and push the tag: `git tag v0.1.0 && git push origin v0.1.0`.
-3. `.github/workflows/release.yml` checks the tag against the version, runs `make ci`, builds and smoke-tests the wheel, and publishes it to PyPI through trusted publishing (no API token is stored anywhere).
-
-One-time setup on PyPI, before the first release: at https://pypi.org/manage/account/publishing/ add a pending trusted publisher with project `koreader_D00901`, owner `sethbarrett50`, repository `koreader_D00901`, workflow `release.yml` and environment `pypi`. In the GitHub repo settings, create an environment named `pypi` (adding yourself as a required reviewer gives you a manual approval step before each upload).
-
-The code lives in `src/koreader_d00901/`:
-
-- `plan.py`: which files a given serial prefix and firmware range need.
-- `packages.py`: downloading, verifying and unpacking the packages pinned in `packages.json`.
-- `device.py`: everything that touches the Kindle's USB volume.
-- `cli.py` / `tui.py`: the two front ends.
-- `errors.py`: `InstallerError` and its subclasses, which are reported to the user as one line.
-- `logs.py`: logging setup (a debug log file on every run).
-- `pins.py`: the upstream pin check used by the weekly workflow.
+This tool only automates the work of others: NiLuJe's jailbreak, MKK and KUAL packages on
+[MobileRead](https://www.mobileread.com/forums/showthread.php?t=225030), and the
+[KOReader](https://github.com/koreader/koreader) project. MIT licensed.
