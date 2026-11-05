@@ -71,7 +71,8 @@ def test_usbnetwork_page():
         ';debugOff',
         'ssh root@192.168.2.2',
         'ip addr add 192.168.2.1',
-        'passwordless only over USB with Wi-Fi mode off',
+        'any password is accepted',
+        'managed no',
         '--only usbnet',
     ):
         assert needle in text, needle
