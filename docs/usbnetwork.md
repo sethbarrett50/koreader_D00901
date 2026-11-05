@@ -31,7 +31,26 @@ sudo ip link set usb0 up
 ssh root@192.168.2.2
 ```
 
-Login is passwordless only over USB with Wi-Fi mode off.
+Over USB with Wi-Fi off, any password is accepted.
+
+### If SSH hangs or times out
+
+- **The interface is gone** (`ip -br addr` no longer lists it): USBNetwork is off. A restart turns it
+  off, and `~usbNetwork` is a toggle, so running it a second time also turns it off. Run the three
+  search-bar commands again.
+- **The interface is there but has no 192.168.2.1:** NetworkManager removes addresses it did not
+  set. Tell it to leave the interface alone, then add the address again:
+
+  ```
+  nmcli device set usb0 managed no
+  sudo ip addr add 192.168.2.1/24 dev usb0
+  ping -c 2 192.168.2.2
+  ```
+
+  The interface name may differ (for example `enxee4900000000`); use the one `ip -br link` shows.
+- **Commands behave oddly on the Kindle:** it runs BusyBox 1.7 from 2012. `grep -E` is not
+  supported, and `date -s` does not accept `YYYY-MM-DD`. Copy files to the computer and work there
+  instead, for example `ssh root@192.168.2.2 'cat /var/log/messages' > k3-messages.log`.
 
 ## Back to USB drive mode
 

@@ -4,6 +4,17 @@ All notable changes to `koreader_D00901`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-11-05
+
+### Documentation
+
+- Troubleshooting for KUAL's "not signed by a registered developer" error (`docs/install.md`).
+  Check the firmware first: a K3 at 3.4 showed the error with a correct keystore, and updating to
+  3.4.3 (through 3.4.2) fixed it. Also how to check the keystore, what the error looks like in the
+  Kindle's log, and how to set a wrong clock over USBNetwork.
+- USBNetwork troubleshooting (`docs/usbnetwork.md`): SSH hanging after a restart or a second
+  `~usbNetwork`, NetworkManager removing the address, and the Kindle's old BusyBox.
+
 ## [0.5.0] - 2026-11-05
 
 ### Added
@@ -100,6 +111,7 @@ First release on PyPI.
 - KUAL failed with "not signed by a registered developer" because MKK's 2014 certificates expired
   in April 2025. The installer now applies NiLuJe's 2025 keystore update after MKK.
 
+[0.5.1]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/sethbarrett50/koreader_D00901/compare/v0.3.0...v0.4.0

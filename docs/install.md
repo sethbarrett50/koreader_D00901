@@ -155,8 +155,28 @@ KUAL's KOReader menu has these entries:
 - **The certificates disappeared:** deregistering or an over-the-air (OTA) update can remove the
   developer certificates. Reinstall MKK and the keystore when that happens
   (`koreader-d00901 --only mkk --only keystore`).
-- **KUAL says the title is "not signed by a registered developer":** the 2025 keystore update did
-  not apply. Run `koreader-d00901 --only keystore` and apply the update again.
+- **KUAL says the title is "not signed by a registered developer":** check these in order.
+  1. **Firmware older than 3.4.2.** Look at [MENU] > Settings: the version is at the bottom of the
+     page. On a unit at 3.4 this error appeared even though the keystore, MKK and the clock were all
+     correct, and updating to 3.4.3 fixed it without reinstalling anything. Get the updates from
+     Amazon's "Previous Software Updates for Kindle E-Reader" help page, in the row for your model
+     (B006 3G, B008 Wi-Fi, B00A 3G UK). A unit at 3.4 or 3.4.1 needs the 3.4.2 update first, then
+     3.4.3. Put **one** update file at a time in the Kindle's top folder, run Update Your Kindle,
+     wait for the reboot, then do the next. The jailbreak, MKK, the keystore, KUAL and KOReader
+     survive these updates.
+  2. **The 2025 keystore did not apply.** Run `koreader-d00901 --only keystore` and apply the update
+     again. Over USBNetwork, `md5sum /var/local/java/keystore/developer.keystore` should print
+     `574ec7ffca66c9e4525947097b89eae1`.
+  3. **The Kindle was deregistered or went online unregistered.** Either can remove the
+     certificates. Keep the unit off Wi-Fi (or register it), then reinstall MKK and the keystore.
+
+  In the Kindle's log (`;dumpMessages`, or `/var/log/messages` over USBNetwork) this failure shows
+  as `KindletExecutionExceptionOnRun` followed by `implementationTitle=KUAL,isDeveloper=true`. The
+  signature check passed; the alert text is the Kindle's generic message for any start failure.
+- **The Kindle's clock is years off** (common after a long time with a flat battery). It does not
+  cause the KUAL error above, but it confuses anything that checks dates. Over USBNetwork, set it
+  from the computer (the Kindle's `date` wants `MMDDhhmmYYYY.ss`):
+  `ssh root@192.168.2.2 "date -u $(date -u +%m%d%H%M%Y.%S) && hwclock -u -w"`.
 - **For on-device problems,** type `;dumpMessages` in the Kindle's search bar. It writes
   `documents/all_logs_as_of_*.txt`, which you can attach to a bug report.
 
