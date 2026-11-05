@@ -96,6 +96,13 @@ def test_conf_is_sourced_by_sh(tmp_path):
     assert out == f'{URL}|300'
 
 
+def test_bundled_extension_files_have_lf_line_endings():
+    # .gitattributes keeps them LF in a Windows checkout too, so a wheel built there stays correct.
+    for path in (ROOT / 'src' / 'koreader_d00901' / 'k3dash').rglob('*'):
+        if path.is_file():
+            assert b'\r' not in path.read_bytes(), f'{path.name}: CRLF line endings break the Kindle shell'
+
+
 @needs_sh
 def test_kindle_script_parses_and_uses_only_device_paths():
     script = ROOT / 'src' / 'koreader_d00901' / 'k3dash' / 'bin' / 'k3dash.sh'

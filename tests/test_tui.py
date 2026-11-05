@@ -188,7 +188,8 @@ def test_tui_debug_toggle_streams_debug_log(kindle):
     _, log_text = asyncio.run(_drive(app, kindle.mount, setup=debug_on))
     assert app.state == 'done', log_text
     assert 'INFO koreader_d00901.feeds: wrote 20 feeds (13 enabled)' in log_text
-    assert 'DEBUG koreader_d00901.device: syncing writes to disk' in log_text
+    # os.sync exists everywhere but Windows, where flush says it relies on eject instead.
+    assert 'DEBUG koreader_d00901.device: syncing writes to disk' in log_text or 'no os.sync' in log_text
 
 
 def test_tui_debug_off_hides_debug_log(kindle):
