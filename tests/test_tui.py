@@ -16,12 +16,17 @@ def _log_text(app: InstallerApp) -> str:
     return '\n'.join(line.text for line in app.query_one('#log', RichLog).lines)
 
 
-async def _drive(app: InstallerApp, mount, press: str = '#install', limit: int = 400) -> tuple[list[list[str]], str]:
+async def _drive(
+    app: InstallerApp, mount, press: str = '#install', limit: int = 400, answer: str | None = None
+) -> tuple[list[list[str]], str]:
     """Press a button, then press Continue at every device step until the install settles."""
     waits: list[list[str]] = []
     text = ''
     async with app.run_test(size=(140, 50)) as pilot:
         app.query_one(press, Button).press()
+        if answer is not None:
+            await pilot.pause(0.1)
+            app.screen.query_one(answer, Button).press()
         for _ in range(limit):
             await pilot.pause(0.02)
             if app.state == 'waiting' and not app.query_one('#continue', Button).disabled:
@@ -88,3 +93,26 @@ def test_tui_download_failure_is_reported(kindle):
     assert 'Install failed' in log_text
     assert 'could not download' in log_text
     assert app._marks['packages'] == 'failed'
+
+
+def _add_book(kindle):
+    (kindle.mount / 'documents' / 'novel.mobi').write_bytes(b'book')
+
+
+def test_tui_wipe_confirmed(kindle):
+    _add_book(kindle)
+    app = _app(kindle, wipe=True)
+    _, log_text = asyncio.run(_drive(app, kindle.mount, answer='#wipe-yes'))
+    assert app.state == 'done', log_text
+    assert 'Deleted 2 entries' in log_text
+    assert sorted(p.name for p in (kindle.mount / 'documents').iterdir()) == ['KUAL-KDK-1.0.azw2']
+
+
+def test_tui_wipe_declined_does_not_start(kindle):
+    _add_book(kindle)
+    app = _app(kindle, wipe=True)
+    _, log_text = asyncio.run(_drive(app, kindle.mount, limit=5, answer='#wipe-no'))
+    assert app.state == 'setup'
+    assert 'Kept your books' in log_text
+    assert (kindle.mount / 'documents' / 'novel.mobi').is_file()
+    assert not (kindle.mount / 'koreader').exists()

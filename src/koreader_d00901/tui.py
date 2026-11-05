@@ -9,12 +9,13 @@ from pathlib import Path
 
 from textual import on, work
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ProgressBar, RichLog, Select, Static
 from textual.worker import get_current_worker
 
 from koreader_d00901 import __version__, device, packages, plan
-from koreader_d00901.cli import DONE_MESSAGE, add_common_args
+from koreader_d00901.cli import DONE_MESSAGE, add_common_args, describe
 from koreader_d00901.errors import InstallerError
 from koreader_d00901.logs import setup_logging
 
@@ -42,6 +43,40 @@ class Plan:
     prefix: str
     usbnet: bool
     mount: Path
+    wipe: tuple[Path, ...] = ()
+
+
+class ConfirmWipe(ModalScreen[bool]):
+    """Show exactly what --wipe-books would delete and ask before anything is removed."""
+
+    CSS = """
+    ConfirmWipe { align: center middle; }
+    #dialog { width: 70; height: auto; max-height: 80%; border: thick $error; padding: 1 2; background: $surface; }
+    #entries { height: auto; max-height: 20; }
+    #choices { height: auto; margin-top: 1; }
+    #choices Button { margin-right: 2; }
+    """
+
+    def __init__(self, entries: list[Path]) -> None:
+        super().__init__()
+        self.entries = entries
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id='dialog'):
+            yield Label(f'[b]Delete {len(self.entries)} entries from documents/?[/] KUAL and dictionaries are kept.')
+            with VerticalScroll(id='entries'):
+                yield Static('\n'.join(describe(self.entries, limit=200)))
+            with Horizontal(id='choices'):
+                yield Button('Delete them', variant='error', id='wipe-yes')
+                yield Button('Keep my books', variant='primary', id='wipe-no')
+
+    @on(Button.Pressed, '#wipe-yes')
+    def yes(self) -> None:
+        self.dismiss(True)
+
+    @on(Button.Pressed, '#wipe-no')
+    def no(self) -> None:
+        self.dismiss(False)
 
 
 class InstallerApp(App[None]):
@@ -70,11 +105,12 @@ class InstallerApp(App[None]):
         prefix: str | None = None,
         usbnet: bool = False,
         log_file: Path | None = None,
+        wipe: bool = False,
     ) -> None:
         super().__init__()
         self.cache = cache
         self.log_file = log_file or cache / 'install.log'
-        self.initial = (mount, fw, prefix.upper() if prefix else None, usbnet)
+        self.initial = (mount, fw, prefix.upper() if prefix else None, usbnet, wipe)
         self.install: Plan | None = None
         self.state = 'setup'  # setup -> running -> waiting -> running ... -> done | failed
         self._continue = threading.Event()
@@ -82,7 +118,7 @@ class InstallerApp(App[None]):
     # Layout
 
     def compose(self) -> ComposeResult:
-        mount, fw, prefix, usbnet = self.initial
+        mount, fw, prefix, usbnet, wipe = self.initial
         yield Header()
         with Horizontal():
             with Vertical(id='setup'):
@@ -101,6 +137,7 @@ class InstallerApp(App[None]):
                     value=prefix if prefix in MODELS else Select.NULL,
                 )
                 yield Checkbox('Also install USBNetwork (ssh over USB)', usbnet, id='usbnet')
+                yield Checkbox('Delete existing books first (asks)', wipe, id='wipe')
                 yield Label('Kindle mount point')
                 yield Input(str(mount) if mount else '', placeholder='auto-detected when plugged in', id='mount')
                 yield Button('Install', variant='primary', id='install')
@@ -187,6 +224,11 @@ class InstallerApp(App[None]):
             return
         files, steps = self.plan_steps(install)
         self.log_line(f'[b]Plan[/] for {MODELS[install.prefix]}, firmware {install.fw}, at {install.mount}:')
+        if self.query_one('#wipe', Checkbox).value:
+            entries = device.list_books(install.mount)
+            self.log_line(f'  ask, then delete {len(entries)} entries in documents/ (KUAL and dictionaries kept)')
+            for line in describe(entries):
+                self.log_line(f'  {line}')
         for key, label in steps:
             self.log_line(f'  stage {files[key]} ({label}), then Update Your Kindle')
         self.log_line('  copy KUAL-KDK-1.0.azw2 into documents/')
@@ -198,9 +240,26 @@ class InstallerApp(App[None]):
         install = self.read_plan()
         if install is None:
             return
+        entries = device.list_books(install.mount) if self.query_one('#wipe', Checkbox).value else []
+        if not entries:
+            if self.query_one('#wipe', Checkbox).value:
+                self.log_line('No books to delete in documents/.')
+            self.begin(install)
+            return
+
+        def answered(confirmed: bool | None) -> None:
+            if confirmed:
+                self.begin(Plan(install.fw, install.prefix, install.usbnet, install.mount, tuple(entries)))
+            else:
+                self.log_line('Kept your books; press Install again, or untick the delete option.')
+
+        self.push_screen(ConfirmWipe(entries), answered)
+
+    def begin(self, install: Plan) -> None:
         self.install = install
         _files, steps = self.plan_steps(install)
-        self._steps = [('packages', 'Download and verify packages'), *steps]
+        self._steps = [('wipe', f'Delete {len(install.wipe)} old entries')] if install.wipe else []
+        self._steps += [('packages', 'Download and verify packages'), *steps]
         self._steps += [('kual', 'Copy KUAL to documents/'), ('koreader', 'Copy KOReader')]
         self._marks = {key: 'pending' for key, _ in self._steps}
         self.render_steps()
@@ -277,6 +336,13 @@ class InstallerApp(App[None]):
         current = 'packages'
         try:
             files, steps = self.plan_steps(install)
+            if install.wipe:
+                current = 'wipe'
+                self._ui(self.mark, current, 'current')
+                removed = device.wipe_books(install.mount, list(install.wipe))
+                self._ui(self.log_line, f'Deleted {removed} entries from documents/.')
+                self._ui(self.mark, current, 'done')
+                current = 'packages'
             self._ui(self.mark, current, 'current')
             log.debug('plan: %s files=%s', install, files)
             roots = packages.fetch_packages(
@@ -346,7 +412,7 @@ def main(argv: list[str] | None = None) -> int:
     # Console logging would draw over the TUI, so the TUI logs to the file only.
     setup_logging(log_file, verbose=args.verbose, console=False)
     log.debug('koreader-d00901-tui %s, args=%s', __version__, vars(args))
-    InstallerApp(args.cache, args.mount, args.fw, args.prefix, args.usbnet, log_file).run()
+    InstallerApp(args.cache, args.mount, args.fw, args.prefix, args.usbnet, log_file, args.wipe_books).run()
     return 0
 
 

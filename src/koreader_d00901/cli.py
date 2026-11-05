@@ -28,6 +28,9 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--fw', help='firmware range: ' + ', '.join(plan.FIRMWARE_RANGES))
     parser.add_argument('--prefix', help='serial prefix: ' + ', '.join(plan.VARIANTS))
     parser.add_argument('--usbnet', action='store_true', help='also install USBNetwork')
+    parser.add_argument(
+        '--wipe-books', action='store_true', help='delete the existing books in documents/ first (asks to confirm)'
+    )
     parser.add_argument('--cache', type=Path, default=DEFAULT_CACHE, help='download cache directory')
     parser.add_argument('--log-file', type=Path, help='debug log file (default CACHE/install.log)')
     parser.add_argument('-v', '--verbose', action='store_true', help='show debug logging on the console')
@@ -72,6 +75,33 @@ def _update_step(mount: Path, bin_path: Path, label: str) -> None:
         log.warning('%s is still at the Kindle root; the update may not have applied.', bin_path.name)
 
 
+def describe(entries: list[Path], limit: int = 20) -> list[str]:
+    """Display lines for entries of documents/, capped at limit."""
+    lines = [f'  {p.name}{"/" if p.is_dir() else ""}' for p in entries[:limit]]
+    if len(entries) > limit:
+        lines.append(f'  ...and {len(entries) - limit} more')
+    return lines
+
+
+def _wipe_step(mount: Path, dry_run: bool) -> None:
+    entries = device.list_books(mount)
+    if not entries:
+        print('No books to delete in documents/.')
+        return
+    verb = 'would delete' if dry_run else 'will delete'
+    print(f'--wipe-books {verb} {len(entries)} entries in documents/ (keeping KUAL and dictionaries):')
+    print('\n'.join(describe(entries)))
+    if dry_run:
+        return
+    answer = input(f"Type 'wipe' to delete these {len(entries)} entries (anything else skips this step): ")
+    if answer.strip().lower() != 'wipe':
+        print('Skipped; no books were deleted.')
+        log.info('wipe declined')
+        return
+    removed = device.wipe_books(mount, entries)
+    print(f'Deleted {removed} entries.')
+
+
 def run(args: argparse.Namespace) -> int:
     fw = _ask_valid(f'Firmware range ({"/".join(plan.FIRMWARE_RANGES)}): ', args.fw, plan.check_firmware, '--fw')
     prefix = _ask_valid(f'Serial prefix ({"/".join(plan.VARIANTS)}): ', args.prefix, plan.check_prefix, '--prefix')
@@ -82,11 +112,16 @@ def run(args: argparse.Namespace) -> int:
 
     if args.dry_run:
         print(f'Dry run: mount={mount} firmware={fw} prefix={prefix}')
+        if args.wipe_books:
+            _wipe_step(mount, dry_run=True)
         for key, label in steps:
             print(f'  would stage {files[key]} ({label})')
         print(f'  would copy {plan.KUAL_FILE} into documents/')
         print('  would merge koreader/, extensions/, launchpad/ into the mount root')
         return 0
+
+    if args.wipe_books:
+        _wipe_step(mount, dry_run=False)
 
     print('Getting packages (cached after the first run):')
     roots = packages.fetch_packages(plan.package_keys(files), args.cache, lambda name: print(f'  {name}', flush=True))

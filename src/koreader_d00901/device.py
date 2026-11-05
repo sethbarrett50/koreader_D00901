@@ -9,7 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from koreader_d00901.errors import DeviceError
-from koreader_d00901.plan import KOREADER_TREES
+from koreader_d00901.plan import KOREADER_TREES, KUAL_FILE
 
 log = logging.getLogger(__name__)
 
@@ -106,3 +106,40 @@ def copy_files(pairs: list[tuple[Path, Path]], on_progress: Callable[[int, int],
 def flush() -> None:
     log.debug('syncing writes to disk')
     os.sync()
+
+
+# Kept by --wipe-books: KUAL itself, and the Kindle's built-in dictionaries.
+KEEP_IN_DOCUMENTS = frozenset({KUAL_FILE.lower(), 'dictionaries'})
+
+
+def list_books(mount: Path) -> list[Path]:
+    """Top-level entries of documents/ that --wipe-books would delete (books, .sdr sidecars, logs)."""
+    docs = mount / 'documents'
+    if not docs.is_dir():
+        return []
+    return sorted(p for p in docs.iterdir() if p.name.lower() not in KEEP_IN_DOCUMENTS)
+
+
+def wipe_books(mount: Path, entries: list[Path]) -> int:
+    """Delete the given entries of documents/; return how many were removed.
+
+    Every entry is re-checked to sit directly inside documents/ and not be a kept name, so a
+    stale or tampered list cannot delete anything else.
+    """
+    docs = (mount / 'documents').resolve()
+    removed = 0
+    for entry in entries:
+        if entry.parent.resolve() != docs or entry.name.lower() in KEEP_IN_DOCUMENTS:
+            raise DeviceError(f'refusing to delete {entry}: not a book entry in {docs}')
+        if entry.is_symlink() or entry.is_file():
+            entry.unlink()
+        elif entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            log.debug('already gone: %s', entry)
+            continue
+        log.debug('deleted %s', entry)
+        removed += 1
+    os.sync()
+    log.info('wiped %d entries from %s', removed, docs)
+    return removed
